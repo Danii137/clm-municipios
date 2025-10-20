@@ -1,57 +1,166 @@
 import { create } from 'zustand'
 import type {
-  NivelDificultad,
-  Pregunta,
   MunicipioId,
+  MunicipioInfo,
+  NivelDificultad,
+  ProvinciaId,
   RespuestaEstado
 } from '../types/municipio'
 
-export type GameMode = 'estudio' | 'preguntas'
+export type GameMode = 'estudio' | 'reto'
 
 export type ColorMode = 'uniforme' | 'por-provincia'
 
+type QuizQuestion = {
+  id: string
+  municipioId: MunicipioId
+  nombre: string
+  estado: RespuestaEstado
+  respuesta?: MunicipioId
+}
+
+type MapStatus = Record<MunicipioId, RespuestaEstado>
+
+const ALL_PROVINCES: ProvinciaId[] = [
+  'albacete',
+  'ciudad-real',
+  'cuenca',
+  'guadalajara',
+  'toledo'
+]
+
+export const PROVINCES: readonly ProvinciaId[] = Object.freeze([...ALL_PROVINCES])
+
 type GameState = {
   modo: GameMode
-  dificultad: NivelDificultad
   colorMode: ColorMode
-  preguntas: Pregunta[]
-  activa?: Pregunta
-  startQuiz: (dificultad: NivelDificultad) => void
+  dificultad: NivelDificultad
+  selectedProvinces: ProvinciaId[]
+  preguntas: QuizQuestion[]
+  activeIndex: number
+  aciertos: number
+  fallos: number
+  completado: boolean
+  mapaEstados: MapStatus
+  startQuiz: (params: { dificultad: NivelDificultad; municipios: MunicipioInfo[] }) => void
   marcarMunicipio: (municipioId: MunicipioId) => void
+  resetQuiz: () => void
   setModo: (modo: GameMode) => void
   setColorMode: (mode: ColorMode) => void
+  setSelectedProvinces: (provincias: ProvinciaId[]) => void
+}
+
+const shuffle = <T,>(array: T[]): T[] => {
+  const result = [...array]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
+const initialState: Pick<
+  GameState,
+  'dificultad' | 'preguntas' | 'activeIndex' | 'aciertos' | 'fallos' | 'completado' | 'mapaEstados'
+> = {
+  dificultad: 'estudio',
+  preguntas: [],
+  activeIndex: -1,
+  aciertos: 0,
+  fallos: 0,
+  completado: false,
+  mapaEstados: {}
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
   modo: 'estudio',
-  dificultad: 'estudio',
-  colorMode: 'uniforme',
-  preguntas: [],
-  activa: undefined,
-  startQuiz: (dificultad) => {
-    const generated: Pregunta[] = []
-    // TODO: generar preguntas reales cuando tengamos los datos
+  colorMode: 'por-provincia',
+  selectedProvinces: ALL_PROVINCES,
+  ...initialState,
+  startQuiz: ({ dificultad, municipios }) => {
+    if (!municipios.length) return
+
+    const pool = shuffle(municipios)
+    const limit =
+      dificultad === 'reto-10'
+        ? Math.min(10, pool.length)
+        : dificultad === 'reto-provincia'
+          ? pool.length
+          : pool.length
+
+    const selected = pool.slice(0, limit)
+    const preguntas: QuizQuestion[] = selected.map((municipio) => ({
+      id: `q-${municipio.id}`,
+      municipioId: municipio.id,
+      nombre: municipio.nombre,
+      estado: 'pendiente'
+    }))
+
     set({
-      modo: 'preguntas',
+      modo: 'reto',
       dificultad,
-      preguntas: generated,
-      activa: generated[0]
+      preguntas,
+      activeIndex: preguntas.length ? 0 : -1,
+      aciertos: 0,
+      fallos: 0,
+      completado: preguntas.length === 0,
+      mapaEstados: {}
     })
   },
   marcarMunicipio: (municipioId) => {
-    const { activa, preguntas } = get()
-    if (!activa) return
-    const updated = preguntas.map((pregunta) => {
-      if (pregunta.id !== activa.id) return pregunta
-      const estado: RespuestaEstado =
-        pregunta.municipioId === municipioId ? 'correcta' : 'fallida'
-      return { ...pregunta, estado, respuesta: municipioId }
+    const { preguntas, activeIndex, completado, mapaEstados, aciertos, fallos } = get()
+    if (preguntas.length === 0 || activeIndex < 0 || completado) return
+    const pregunta = preguntas[activeIndex]
+    if (pregunta.estado !== 'pendiente') return
+
+    const updatedPreguntas = [...preguntas]
+    const updatedMapa: MapStatus = { ...mapaEstados }
+    let nuevosAciertos = aciertos
+    let nuevosFallos = fallos
+
+    let estado: RespuestaEstado
+    if (municipioId === pregunta.municipioId) {
+      estado = 'correcta'
+      updatedMapa[pregunta.municipioId] = 'correcta'
+      nuevosAciertos += 1
+    } else {
+      estado = 'fallida'
+      updatedMapa[municipioId] = 'fallida'
+      updatedMapa[pregunta.municipioId] = 'correcta'
+      nuevosFallos += 1
+    }
+
+    updatedPreguntas[activeIndex] = {
+      ...pregunta,
+      estado,
+      respuesta: municipioId
+    }
+
+    const nextIndex = updatedPreguntas.findIndex(
+      (q, idx) => idx > activeIndex && q.estado === 'pendiente'
+    )
+    const newCompleted = nextIndex === -1
+
+    set({
+      preguntas: updatedPreguntas,
+      activeIndex: newCompleted ? -1 : nextIndex,
+      aciertos: nuevosAciertos,
+      fallos: nuevosFallos,
+      completado: newCompleted,
+      mapaEstados: updatedMapa
     })
-
-    const siguiente = updated.find((p) => p.estado === 'pendiente')
-
-    set({ preguntas: updated, activa: siguiente })
   },
-  setModo: (modo) => set({ modo }),
-  setColorMode: (mode) => set({ colorMode: mode })
+  resetQuiz: () => set(initialState),
+  setModo: (modo) => {
+    if (modo === 'estudio') {
+      set({ modo, ...initialState })
+    } else {
+      set({ modo })
+    }
+  },
+  setColorMode: (mode) => set({ colorMode: mode }),
+  setSelectedProvinces: (provincias) => {
+    if (!provincias.length) return
+    set({ selectedProvinces: provincias })
+  }
 }))

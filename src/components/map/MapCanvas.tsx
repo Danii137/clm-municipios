@@ -2,12 +2,18 @@ import { memo, useMemo } from 'react'
 import type { ReactElement } from 'react'
 import type { Feature, Geometry } from 'geojson'
 import { geoMercator, geoPath } from 'd3-geo'
-import type { ColorMode } from '../../store/gameStore'
+import clsx from 'clsx'
+import type { ColorMode, GameMode } from '../../store/gameStore'
+import type { MunicipioInfo, ProvinciaId, RespuestaEstado } from '../../types/municipio'
 
 type MapCanvasProps = {
   features: Feature<Geometry, Record<string, unknown>>[]
   highlightMunicipioId?: string
   colorMode: ColorMode
+  modo: GameMode
+  infoById: Map<string, MunicipioInfo>
+  selectedProvinces: ProvinciaId[]
+  statuses?: Record<string, RespuestaEstado>
   onSelect?: (municipioId: string) => void
 }
 
@@ -24,12 +30,27 @@ const provincePalette: Record<string, string> = {
 
 const uniformFill = '#c7d2fe'
 
+const statusFill: Record<RespuestaEstado, string> = {
+  correcta: '#22c55e',
+  fallida: '#f87171',
+  pendiente: uniformFill
+}
+
 const MapCanvasComponent = ({
   features,
   highlightMunicipioId,
   colorMode,
+  modo,
+  infoById,
+  selectedProvinces,
+  statuses,
   onSelect
 }: MapCanvasProps) => {
+  const selectedProvinceSet = useMemo(
+    () => new Set<ProvinciaId>(selectedProvinces),
+    [selectedProvinces]
+  )
+
   const { pathGenerator, projectedFeatures } = useMemo(() => {
     if (features.length === 0) {
       return {
@@ -64,30 +85,37 @@ const MapCanvasComponent = ({
             const municipioId = String(
               feature.properties?.id ?? feature.id ?? 'sin-id'
             )
-            const provincia = String(feature.properties?.provincia ?? '')
-            const nombreProp =
-              typeof feature.properties?.nombre === 'string'
-                ? feature.properties.nombre
-                : municipioId
+            const info = infoById.get(municipioId)
+            const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
+            const nombreProp = info?.nombre ?? municipioId
             const d = pathGenerator(feature as Feature)
             if (!d) return null
 
+            const status = statuses?.[municipioId]
             const isActive = highlightMunicipioId === municipioId
-            const fill =
-              colorMode === 'por-provincia'
+            const isDimmed = !status && !selectedProvinceSet.has(provincia as ProvinciaId)
+
+            const fill = status
+              ? statusFill[status]
+              : colorMode === 'por-provincia'
                 ? provincePalette[provincia] ?? '#fbbf24'
                 : uniformFill
+
+            const opacity = status ? 0.95 : isDimmed ? 0.25 : 0.85
 
             return (
               <path
                 key={municipioId}
                 d={d}
-                className={`map-canvas__feature${
-                  isActive ? ' map-canvas__feature--active' : ''
-                }`}
+                className={clsx('map-canvas__feature', {
+                  'map-canvas__feature--active': isActive,
+                  'map-canvas__feature--dimmed': !status && isDimmed,
+                  'map-canvas__feature--quiz': modo === 'reto'
+                })}
                 fill={fill}
                 stroke="#312e81"
-                strokeWidth={isActive ? 2.8 : 1.2}
+                strokeWidth={isActive ? 2.4 : 1.1}
+                fillOpacity={opacity}
                 onClick={() => onSelect?.(municipioId)}
               >
                 <title>{nombreProp}</title>
@@ -96,7 +124,7 @@ const MapCanvasComponent = ({
           })
         ) : (
           <text x="50%" y="50%" textAnchor="middle" className="map-canvas__placeholder">
-            Cargando mapa de prueba…
+            Cargando mapa…
           </text>
         )}
       </svg>

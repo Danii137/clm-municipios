@@ -7,7 +7,21 @@ export type ProvinciaId =
   | 'guadalajara'
   | 'toledo'
 
-export type NivelDificultad = 'estudio' | 'reto-10' | 'reto-total'
+export type NivelDificultad = 'estudio' | 'reto-10' | 'reto-total' | 'reto-provincia'
+
+export type Coordenadas = {
+  lat: number
+  lon: number
+}
+
+export type EntidadInfo = {
+  id: string
+  nombre: string
+  tipo: string
+  poblacion?: number
+  altitud?: number
+  coordenadas?: Coordenadas
+}
 
 export type MunicipioInfo = {
   id: MunicipioId
@@ -18,6 +32,9 @@ export type MunicipioInfo = {
   altitud?: number
   gentilicio?: string
   descripcion?: string
+  coordenadas?: Coordenadas
+  capital?: EntidadInfo
+  entidades?: EntidadInfo[]
 }
 
 export type RespuestaEstado = 'pendiente' | 'correcta' | 'fallida'
