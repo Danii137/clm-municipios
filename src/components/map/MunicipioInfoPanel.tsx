@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import type { MunicipioInfo } from '../../types/municipio'
-import clsx from 'clsx'
 
 type MunicipioInfoPanelProps = {
   municipio?: MunicipioInfo
@@ -43,8 +42,16 @@ export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
   }
 
   return (
-    <section className="municipio-info">
-      <h2 className="municipio-info__title">{data.nombre}</h2>
+    <section className={`municipio-info-panel ${isVisible ? 'visible' : ''}`}>
+      <div className="municipio-info">
+        <div className="municipio-info__header">
+          <h2 className="municipio-info__title">{data.nombre}</h2>
+          {isMobile && (
+            <button className="municipio-info__toggle" onClick={togglePanel}>
+              {isVisible ? 'Ocultar' : 'Mostrar'}
+            </button>
+          )}
+        </div>
       {municipio ? (
         <dl className="municipio-info__list">
           <div>
@@ -84,6 +91,7 @@ export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
           Explora el mapa para consultar la ficha de cada municipio.
         </p>
       )}
+      </div>
     </section>
   )
 }

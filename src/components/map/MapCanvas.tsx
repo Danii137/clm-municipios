@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import type { Feature, Geometry } from 'geojson'
 import { geoMercator, geoPath } from 'd3-geo'
 import clsx from 'clsx'
+import { assignColors } from '../../utils/coloring'
 import type { ColorMode, GameMode } from '../../store/gameStore'
 import type { MunicipioInfo, ProvinciaId, RespuestaEstado } from '../../types/municipio'
 
@@ -67,6 +68,16 @@ const MapCanvasComponent = ({
     return { pathGenerator: generator, projectedFeatures: features }
   }, [features])
 
+  // asignar colores únicos a cada municipio usando la heurística
+  const colorById = useMemo(() => {
+    try {
+      return assignColors(features)
+    } catch (e) {
+      console.error('Error assigning colors', e)
+      return new Map<string, string>()
+    }
+  }, [features])
+
   return (
     <div className="map-canvas">
       <svg
@@ -98,8 +109,10 @@ const MapCanvasComponent = ({
             const fill = status
               ? statusFill[status]
               : colorMode === 'por-provincia'
-                ? provincePalette[provincia] ?? '#fbbf24'
-                : uniformFill
+                ? // en modo por-provincia mantenemos el comportamiento anterior
+                  provincePalette[provincia] ?? '#fbbf24'
+                : // modo uniforme ahora usa colores individuales por municipio
+                  colorById.get(municipioId) ?? uniformFill
 
             const opacity = status ? 0.95 : isDimmed ? 0.25 : 0.85
 
