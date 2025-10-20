@@ -47,9 +47,16 @@ const MapCanvasComponent = ({
   statuses,
   onSelect
 }: MapCanvasProps) => {
+  // Mantener set de provincias seleccionadas
   const selectedProvinceSet = useMemo(
     () => new Set<ProvinciaId>(selectedProvinces),
     [selectedProvinces]
+  )
+
+  // Asignar colores únicos a municipios
+  const municipioColors = useMemo(
+    () => assignColors(features),
+    [features]
   )
 
   const { pathGenerator, projectedFeatures } = useMemo(() => {
