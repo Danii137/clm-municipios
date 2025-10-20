@@ -1,16 +1,18 @@
 import type { Feature, Geometry } from 'geojson'
 
-// Paleta de 10 colores agradables (tonos pastel / vibrantes) — pueden ajustarse
+// Paleta solicitada (Sky Pulse, Lime Burst, Purple Bloom, Solar Pop, Coral Heat,
+// Sunny Kick, Neon Pink, Aqua Twist, Deep Wave, Golden Clay)
 export const PALETTE = [
-  '#1D1D1B', // Muted Black
-  '#EAE4DA', // Seashell
-  '#808BC5', // Lavander
-  '#245E55', // Tea
-  '#EAC119', // Mustard Yellow
-  '#EAA7C7', // Pink Quartz
-  '#ED773C', // Tangerine
-  '#9ED6DF', // Sky
-  '#C63F3E'  // Red Passion
+  '#00A6ED', // Sky Pulse
+  '#7ED957', // Lime Burst
+  '#7E57C2', // Purple Bloom
+  '#FF6F00', // Solar Pop
+  '#FF5252', // Coral Heat
+  '#FFEB3B', // Sunny Kick
+  '#E91E63', // Neon Pink
+  '#00BFA5', // Aqua Twist
+  '#2962FF', // Deep Wave
+  '#D68600'  // Golden Clay
 ]
 
 // Bounding box helper
@@ -103,6 +105,7 @@ export const assignColors = (features: Feature<Geometry, any>[]) => {
   degree.sort((a, b) => b.d - a.d)
 
   const colorById = new Map<string, string>()
+  const usageCount = new Map<string, number>(PALETTE.map((color) => [color, 0]))
 
   for (const { id } of degree) {
     const used = new Set<string>()
@@ -111,13 +114,20 @@ export const assignColors = (features: Feature<Geometry, any>[]) => {
       if (c) used.add(c)
     }
 
-    // elegir el primer color no usado
-    let chosen = PALETTE.find((p) => !used.has(p))
+    const paletteByUsage = [...PALETTE].sort((a, b) => {
+      const diff = (usageCount.get(a) ?? 0) - (usageCount.get(b) ?? 0)
+      return diff !== 0 ? diff : PALETTE.indexOf(a) - PALETTE.indexOf(b)
+    })
+
+    let chosen = paletteByUsage.find((color) => !used.has(color))
+
     if (!chosen) {
-      // si todos los 10 están usados entre vecinos, elegir uno minimizando conflictos
-      chosen = PALETTE[Math.floor(Math.random() * PALETTE.length)]
+      // si todos los colores están ocupados por vecinos, elegimos el menos usado
+      chosen = paletteByUsage[0]
     }
+
     colorById.set(id, chosen)
+    usageCount.set(chosen, (usageCount.get(chosen) ?? 0) + 1)
   }
 
   return colorById

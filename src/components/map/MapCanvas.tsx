@@ -53,12 +53,6 @@ const MapCanvasComponent = ({
     [selectedProvinces]
   )
 
-  // Asignar colores únicos a municipios
-  const municipioColors = useMemo(
-    () => assignColors(features),
-    [features]
-  )
-
   const { pathGenerator, projectedFeatures } = useMemo(() => {
     if (features.length === 0) {
       return {
@@ -86,7 +80,7 @@ const MapCanvasComponent = ({
   }, [features])
 
   return (
-    <div className="map-canvas">
+    <div className="map-container map-canvas">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"

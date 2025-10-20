@@ -19,6 +19,12 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  useEffect(() => {
+    if (!isMobile && sidebarOpen) {
+      setSidebarOpen(false)
+    }
+  }, [isMobile, sidebarOpen])
+
   return (
     <div className="app-shell">
       <header className="app-shell__header">
