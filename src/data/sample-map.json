@@ -1,0 +1,110 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "toledo",
+      "properties": {
+        "id": "toledo",
+        "nombre": "Toledo",
+        "provincia": "toledo"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-5.3, 40.3],
+            [-3.6, 40.3],
+            [-3.6, 39.2],
+            [-5.3, 39.2],
+            [-5.3, 40.3]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ciudad-real",
+      "properties": {
+        "id": "ciudad-real",
+        "nombre": "Ciudad Real",
+        "provincia": "ciudad-real"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-4.9, 39.2],
+            [-2.8, 39.2],
+            [-2.8, 37.8],
+            [-4.9, 37.8],
+            [-4.9, 39.2]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "cuenca",
+      "properties": {
+        "id": "cuenca",
+        "nombre": "Cuenca",
+        "provincia": "cuenca"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-3.6, 40.5],
+            [-1.7, 40.5],
+            [-1.7, 39.2],
+            [-3.6, 39.2],
+            [-3.6, 40.5]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "guadalajara",
+      "properties": {
+        "id": "guadalajara",
+        "nombre": "Guadalajara",
+        "provincia": "guadalajara"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-3.6, 41.4],
+            [-1.7, 41.4],
+            [-1.7, 40.5],
+            [-3.6, 40.5],
+            [-3.6, 41.4]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "albacete",
+      "properties": {
+        "id": "albacete",
+        "nombre": "Albacete",
+        "provincia": "albacete"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-2.8, 38.8],
+            [-0.9, 38.8],
+            [-0.9, 37.8],
+            [-2.8, 37.8],
+            [-2.8, 38.8]
+          ]
+        ]
+      }
+    }
+  ]
+}
