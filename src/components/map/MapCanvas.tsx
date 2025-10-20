@@ -104,7 +104,8 @@ const MapCanvasComponent = ({
 
             const status = statuses?.[municipioId]
             const isActive = highlightMunicipioId === municipioId
-            const isDimmed = !status && !selectedProvinceSet.has(provincia as ProvinciaId)
+            // Si hay provincias seleccionadas, solo se encienden los municipios de esas provincias
+            const isDimmed = selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
 
             const fill = status
               ? statusFill[status]
