@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import type { MunicipioInfo } from '../../types/municipio'
+import clsx from 'clsx'
 
 type MunicipioInfoPanelProps = {
   municipio?: MunicipioInfo
@@ -11,7 +13,28 @@ const EMPTY_STATE: MunicipioInfo = {
 }
 
 export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const data = municipio ?? EMPTY_STATE
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  useEffect(() => {
+    if (municipio) {
+      setIsVisible(true)
+    }
+  }, [municipio])
+
+  const togglePanel = () => {
+    if (isMobile) {
+      setIsVisible(!isVisible)
+    }
+  }
 
   const formatCoord = (value: number, axis: 'lat' | 'lon') => {
     const abs = Math.abs(value).toFixed(4)

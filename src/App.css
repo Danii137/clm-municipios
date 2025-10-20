@@ -24,10 +24,29 @@
   backdrop-filter: blur(18px);
   border-bottom: 1px solid rgba(99, 102, 241, 0.18);
   padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-shell__mobile-menu {
+  padding: 0.5rem 1rem;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 0.5rem;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.app-shell__mobile-menu:hover {
+  background: rgba(99, 102, 241, 0.3);
 }
 
 .app-shell__body {
   flex: 1;
+  position: relative;
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 1.5rem;
