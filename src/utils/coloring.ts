@@ -2,16 +2,15 @@ import type { Feature, Geometry } from 'geojson'
 
 // Paleta de 10 colores agradables (tonos pastel / vibrantes) — pueden ajustarse
 export const PALETTE = [
-  '#ff6b6b', // rojo-rosado
-  '#f59e0b', // ámbar
-  '#f97316', // naranja
-  '#f472b6', // rosa
-  '#60a5fa', // azul claro
-  '#34d399', // verde menta
-  '#7c3aed', // violeta
-  '#06b6d4', // cian
-  '#fbbf24', // amarillo
-  '#a78bfa'  // lila
+  '#1D1D1B', // Muted Black
+  '#EAE4DA', // Seashell
+  '#808BC5', // Lavander
+  '#245E55', // Tea
+  '#EAC119', // Mustard Yellow
+  '#EAA7C7', // Pink Quartz
+  '#ED773C', // Tangerine
+  '#9ED6DF', // Sky
+  '#C63F3E'  // Red Passion
 ]
 
 // Bounding box helper
