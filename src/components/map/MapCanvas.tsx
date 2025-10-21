@@ -6,7 +6,7 @@ import { select, pointer } from 'd3-selection'
 import { zoom, type ZoomBehavior } from 'd3-zoom'
 import clsx from 'clsx'
 import { assignColors } from '../../utils/coloring'
-import type { ColorMode, GameMode } from '../../store/gameStore'
+import type { CelebrationState, ColorMode, GameMode } from '../../store/gameStore'
 import type { MunicipioInfo, ProvinciaId, RespuestaEstado } from '../../types/municipio'
 
 type MapCanvasProps = {
@@ -18,6 +18,8 @@ type MapCanvasProps = {
   selectedProvinces: ProvinciaId[]
   statuses?: Record<string, RespuestaEstado>
   onSelect?: (municipioId: string) => void
+  correctBlinkId?: string
+  celebration?: CelebrationState
 }
 
 const WIDTH = 760
@@ -47,7 +49,9 @@ const MapCanvasComponent = ({
   infoById,
   selectedProvinces,
   statuses,
-  onSelect
+  onSelect,
+  correctBlinkId,
+  celebration
 }: MapCanvasProps) => {
   // Mantener set de provincias seleccionadas
   const selectedProvinceSet = useMemo(
@@ -149,6 +153,28 @@ const MapCanvasComponent = ({
     }
   }, [features])
 
+  const celebrationPoint = useMemo(() => {
+    if (!celebration || !pathGenerator) return undefined
+    if (!celebration.municipioId) return undefined
+    const feature = projectedFeatures.find((feat) => {
+      const municipioId = String(feat.properties?.id ?? feat.id ?? 'sin-id')
+      return municipioId === celebration.municipioId
+    })
+    if (!feature) return undefined
+    try {
+      const [cx, cy] = (pathGenerator as any).centroid(feature)
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) return undefined
+      return {
+        x: cx,
+        y: cy,
+        key: celebration.key
+      }
+    } catch (error) {
+      console.error('Error calculating celebration centroid', error)
+      return undefined
+    }
+  }, [celebration, pathGenerator, projectedFeatures])
+
   return (
     <div className="map-container map-canvas">
       <svg
@@ -200,7 +226,10 @@ const MapCanvasComponent = ({
                 className={clsx('map-canvas__feature', {
                   'map-canvas__feature--active': isActive,
                   'map-canvas__feature--dimmed': !status && isProvinceDimmed,
-                  'map-canvas__feature--quiz': modo === 'reto'
+                  'map-canvas__feature--quiz': modo === 'reto',
+                  'map-canvas__feature--correct-target': correctBlinkId === municipioId,
+                  'map-canvas__feature--celebration':
+                    celebration?.municipioId === municipioId
                 })}
                 fill={fill}
                 stroke="#312e81"
@@ -217,6 +246,19 @@ const MapCanvasComponent = ({
             Cargando mapa…
           </text>
         )}
+        {celebrationPoint ? (
+          <g
+            key={celebrationPoint.key}
+            className="map-celebration"
+            transform={`translate(${celebrationPoint.x} ${celebrationPoint.y})`}
+          >
+            <circle className="map-celebration__glow" r="18" />
+            <path
+              className="map-celebration__star"
+              d="M0 -12 L3.6 -4.2 L11.5 -3.8 L5.8 1.8 L7.8 9.6 L0 5.2 L-7.8 9.6 L-5.8 1.8 L-11.5 -3.8 L-3.6 -4.2 Z"
+            />
+          </g>
+        ) : null}
       </svg>
     </div>
   )

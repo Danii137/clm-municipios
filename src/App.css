@@ -408,8 +408,14 @@
 }
 
 .map-container {
-  touch-action: pinch-zoom;
+  touch-action: none;
   overflow: hidden;
+  cursor: grab;
+}
+
+.map-container:active,
+.map-container:active svg {
+  cursor: grabbing;
 }
 
 .map-canvas {
@@ -421,6 +427,7 @@
   width: 100%;
   height: 100%;
   padding: 1.5rem;
+  touch-action: none;
 }
 
 .map-canvas__background {
@@ -441,12 +448,23 @@
 }
 
 .map-canvas__feature--active {
-  filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.65));
+  animation: map-feature-pulse 1.3s ease-in-out infinite;
+  filter: drop-shadow(0 0 16px rgba(59, 130, 246, 0.65));
 }
 
 .map-canvas__feature--current {
   stroke: rgba(248, 250, 252, 0.95);
   stroke-width: 2.6;
+}
+
+.map-canvas__feature--correct-target {
+  stroke: #fde047;
+  stroke-width: 3px;
+  animation: map-correct-blink 1s ease-in-out infinite;
+}
+
+.map-canvas__feature--celebration {
+  filter: drop-shadow(0 0 24px rgba(236, 72, 153, 0.6));
 }
 
 
@@ -458,6 +476,92 @@
   font-size: 1.4rem;
   fill: #6366f1;
   font-weight: 600;
+}
+
+.map-celebration {
+  pointer-events: none;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: map-celebration-pop 1.05s ease-out forwards;
+}
+
+.map-celebration__glow {
+  fill: rgba(56, 189, 248, 0.35);
+  animation: map-celebration-glow 1.05s ease-out forwards;
+}
+
+.map-celebration__star {
+  fill: #fde68a;
+  stroke: #facc15;
+  stroke-width: 1.2;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: map-celebration-star 1.05s ease-out forwards;
+}
+
+@keyframes map-feature-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 16px rgba(59, 130, 246, 0.75));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.35));
+  }
+}
+
+@keyframes map-correct-blink {
+  0%, 100% {
+    filter: drop-shadow(0 0 22px rgba(253, 224, 71, 0.9));
+    stroke-width: 3px;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(253, 224, 71, 0.45));
+    stroke-width: 1.6px;
+  }
+}
+
+@keyframes map-celebration-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+}
+
+@keyframes map-celebration-glow {
+  0% {
+    opacity: 0;
+    r: 6;
+  }
+  50% {
+    opacity: 0.9;
+    r: 22;
+  }
+  100% {
+    opacity: 0;
+    r: 30;
+  }
+}
+
+@keyframes map-celebration-star {
+  0% {
+    opacity: 0;
+    transform: rotate(-20deg) scale(0);
+  }
+  45% {
+    opacity: 1;
+    transform: rotate(5deg) scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(15deg) scale(0.6);
+  }
 }
 
 .municipio-info {
