@@ -74,15 +74,17 @@ export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
       className={`municipio-info-panel ${isVisible ? 'visible' : ''} ${isMobile ? 'mobile' : ''}`}
     >
       <div className="municipio-info">
+        {isMobile ? <div className="municipio-info__handle" aria-hidden="true" /> : null}
         <div className="municipio-info__header">
           <h2 className="municipio-info__title">{data.nombre}</h2>
           {isMobile && (
             <button
               type="button"
               className="municipio-info__toggle"
+              data-icon={isVisible ? '▾' : '▴'}
               onClick={togglePanel}
             >
-              {isVisible ? 'Ocultar' : 'Mostrar'}
+              {isVisible ? 'Ocultar ficha' : 'Mostrar ficha'}
             </button>
           )}
         </div>

@@ -168,7 +168,7 @@ const MapCanvasComponent = ({
     const g = select<SVGGElement, unknown>(gRef.current)
     const rawSvg = svgRef.current
 
-    svg.style('touch-action', 'none')
+    svg.style('touch-action', 'pan-y pinch-zoom')
     svg.style('cursor', 'grab')
 
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
@@ -177,6 +177,15 @@ const MapCanvasComponent = ({
         [-ZOOM_PADDING, -ZOOM_PADDING],
         [WIDTH + ZOOM_PADDING, HEIGHT + ZOOM_PADDING]
       ])
+      .filter((event: any) => {
+        if (!event) return false
+        if (event.type === 'wheel' || event.type === 'dblclick') return true
+        if (event.pointerType === 'mouse' || event.pointerType === 'pen') return true
+        if (event.pointerType === 'touch') {
+          return (event.touches?.length ?? 0) > 1
+        }
+        return true
+      })
       .on('zoom', (event) => {
         g.attr('transform', event.transform.toString())
       })
@@ -189,10 +198,12 @@ const MapCanvasComponent = ({
     }
     rawSvg.addEventListener('wheel', wheelHandler, { passive: false })
 
-    const pointerDownHandler = () => {
+    const pointerDownHandler = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return
       svg.style('cursor', 'grabbing')
     }
-    const pointerUpHandler = () => {
+    const pointerUpHandler = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return
       svg.style('cursor', 'grab')
     }
 
