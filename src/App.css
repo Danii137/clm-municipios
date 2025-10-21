@@ -2,14 +2,14 @@
   color-scheme: dark;
 }
 
-/* Solo el mapa permite zoom, el resto de la app permanece fijo */
+/* Permitimos desplazamiento vertical en la app; el zoom continúa limitado al mapa */
 #root {
   margin: 0;
   min-height: 100vh;
   font-family: 'Poppins', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: radial-gradient(circle at top, #1a1f4b 0%, #060911 55%, #05060d 100%);
   color: #f8fafc;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .app-shell {
@@ -48,6 +48,11 @@
   background: rgba(99, 102, 241, 0.3);
 }
 
+.app-shell__mobile-menu--active {
+  background: rgba(99, 102, 241, 0.35);
+  border-color: rgba(129, 140, 248, 0.7);
+}
+
 .app-shell__body {
   flex: 1;
   position: relative;
@@ -55,6 +60,21 @@
   grid-template-columns: 320px 1fr;
   gap: 1.5rem;
   padding: 2rem;
+}
+
+.app-shell__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 20, 0.65);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 15;
+}
+
+.app-shell__scrim--visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .app-shell__sidebar {
@@ -93,8 +113,9 @@
 
 .header__controls {
   display: flex;
-  gap: 1.5rem;
+  gap: 1.25rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .mode-switch {
@@ -568,40 +589,56 @@
 
 @media (max-width: 768px) {
   .app-shell {
-    align-items: center;
+    align-items: stretch;
   }
 
   .app-shell__body {
-    padding: 1.25rem;
+    padding: clamp(1rem, 4vw, 1.5rem);
     gap: 1rem;
     width: 100%;
-    align-items: center;
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
   }
 
   .app-shell__header {
-    padding: 1.25rem;
+    padding: clamp(1rem, 4vw, 1.5rem);
     width: 100%;
-    max-width: 480px;
+    max-width: none;
     flex-direction: column;
     gap: 1rem;
     text-align: center;
-    margin: 0 auto;
+    margin: 0;
+    align-items: stretch;
   }
 
   .header {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: 1rem;
     text-align: center;
   }
 
+  .header__title h1 {
+    font-size: clamp(1.35rem, 5vw, 1.75rem);
+  }
+
+  .header__title p {
+    max-width: none;
+    font-size: 0.95rem;
+  }
+
   .header__controls {
-    width: min(100%, 420px);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.75rem;
     align-items: stretch;
+  }
+
+  .app-shell__mobile-menu {
+    width: 100%;
   }
 
   .header__controls .select-control {
@@ -623,14 +660,14 @@
 
   .sidebar {
     width: 100%;
-    max-width: 420px;
-    margin: 0 auto;
-    align-items: center;
+    max-width: none;
+    margin: 0;
+    align-items: stretch;
   }
 
   .panel {
     width: 100%;
-    margin: 0 auto;
+    margin: 0;
   }
 
   .panel__actions .ghost-button {
@@ -640,27 +677,30 @@
   .map-section {
     gap: 1rem;
     width: 100%;
-    align-items: center;
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
   }
 
   .map-card {
-    width: min(100%, 420px);
-    padding: 1rem;
+    width: 100%;
+    padding: clamp(0.75rem, 3vw, 1.25rem);
     box-sizing: border-box;
-    margin: 0 auto;
+    margin: 0;
   }
 
   .map-canvas {
     width: 100%;
+    min-height: clamp(240px, 55vh, 520px);
   }
 
   .map-canvas svg {
-    padding: 0.75rem;
+    padding: clamp(0.5rem, 2vw, 0.75rem);
   }
 
   .quiz-hud {
     position: static;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
   }
 
   .quiz-hud__status,
@@ -670,6 +710,6 @@
 
   .app-shell__content {
     width: 100%;
-    align-items: center;
+    align-items: stretch;
   }
 }
