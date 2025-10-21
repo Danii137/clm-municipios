@@ -61,6 +61,7 @@ type GameState = {
   dificultad: NivelDificultad
   dificultadReto: DifficultyLevel
   soundEnabled: boolean
+  theme: 'oscuro' | 'claro'
   selectedCommunities: ComunidadId[]
   selectedProvinces: ProvinciaId[]
   preguntas: QuizQuestion[]
@@ -79,11 +80,13 @@ type GameState = {
   setColorMode: (mode: ColorMode) => void
   setDificultadReto: (dificultad: DifficultyLevel) => void
   toggleSound: () => void
+  toggleTheme: () => void
   setSelectedCommunities: (communities: ComunidadId[]) => void
   toggleCommunity: (communityId: ComunidadId) => void
   toggleProvince: (provinciaId: ProvinciaId) => void
   setSelectedProvinces: (provincias: ProvinciaId[]) => void
   clearCelebration: () => void
+  registrarTiempoAgotado: () => void
 }
 
 const shuffle = <T,>(array: T[]): T[] => {
@@ -133,6 +136,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   colorMode: 'por-provincia',
   dificultadReto: 'dificil',
   soundEnabled: true,
+  theme: 'oscuro',
   selectedCommunities: [DEFAULT_COMMUNITY_ID],
   selectedProvinces: defaultProvinceSelection.length ? defaultProvinceSelection : [],
   ...createInitialQuizState(),
@@ -269,6 +273,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           : undefined
     })),
   toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
+  toggleTheme: () =>
+    set((state) => ({
+      theme: state.theme === 'oscuro' ? 'claro' : 'oscuro'
+    })),
   setSelectedCommunities: (communities) => {
     const validCommunities = communities.length ? communities : [DEFAULT_COMMUNITY_ID]
     const newProvinces = unique(
@@ -352,7 +360,51 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedCommunities: ensureCommunitiesFromProvinces(provincias)
     })
   },
-  clearCelebration: () => set({ celebration: undefined })
+  clearCelebration: () => set({ celebration: undefined }),
+  registrarTiempoAgotado: () => {
+    const {
+      preguntas,
+      activeIndex,
+      completado,
+      mapaEstados,
+      aciertos,
+      fallos,
+      dificultadReto,
+      lockedMunicipios
+    } = get()
+    if (preguntas.length === 0 || activeIndex < 0 || completado) return
+    const pregunta = preguntas[activeIndex]
+    if (pregunta.estado !== 'pendiente') return
+
+    const updatedPreguntas = [...preguntas]
+    const updatedMapa: MapStatus = { ...mapaEstados, [pregunta.municipioId]: 'fallida' }
+    const updatedLocked =
+      dificultadReto === 'facil'
+        ? new Set([...(lockedMunicipios ?? new Set()), pregunta.municipioId])
+        : lockedMunicipios
+
+    updatedPreguntas[activeIndex] = {
+      ...pregunta,
+      estado: 'fallida'
+    }
+
+    const nextIndex = updatedPreguntas.findIndex(
+      (q, idx) => idx > activeIndex && q.estado === 'pendiente'
+    )
+    const newCompleted = nextIndex === -1
+
+    set({
+      preguntas: updatedPreguntas,
+      activeIndex: newCompleted ? -1 : nextIndex,
+      aciertos,
+      fallos: fallos + 1,
+      completado: newCompleted,
+      mapaEstados: updatedMapa,
+      lockedMunicipios: dificultadReto === 'facil' ? updatedLocked : lockedMunicipios,
+      celebration: undefined,
+      correctBlinkId: undefined
+    })
+  }
 }))
 
 export const municipiosInfo = spanishMunicipiosInfo

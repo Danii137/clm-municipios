@@ -10,6 +10,7 @@ type AppShellProps = {
 export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
   const [isMobile, setIsMobile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -57,8 +58,76 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
   }, [sidebarOpen])
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev)
+  const toggleCollapsed = () => setSidebarCollapsed((prev) => !prev)
   const closeSidebar = () => setSidebarOpen(false)
   const sidebarId = 'app-shell-sidebar'
+
+  // Gestos: abrir con barrido desde el borde izquierdo y cerrar con barrido sobre el cajón
+  useEffect(() => {
+    if (!isMobile) return
+
+    let startX = 0
+    let startY = 0
+    let tracking = false
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      // activar sólo si empezamos muy cerca del borde izquierdo
+      if (!sidebarOpen && t.clientX < 24) {
+        tracking = true
+        startX = t.clientX
+        startY = t.clientY
+      }
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      if (!tracking) return
+      const t = e.touches[0]
+      const dx = t.clientX - startX
+      const dy = Math.abs(t.clientY - startY)
+      if (dx > 40 && dy < 30) {
+        setSidebarOpen(true)
+        tracking = false
+      }
+    }
+    const onTouchEnd = () => {
+      tracking = false
+    }
+
+    const onDrawerTouchStart = (e: TouchEvent) => {
+      if (!sidebarOpen || e.touches.length !== 1) return
+      const t = e.touches[0]
+      startX = t.clientX
+      startY = t.clientY
+      tracking = true
+    }
+    const onDrawerTouchMove = (e: TouchEvent) => {
+      if (!tracking) return
+      const t = e.touches[0]
+      const dx = t.clientX - startX
+      const dy = Math.abs(t.clientY - startY)
+      if (dx < -40 && dy < 30) {
+        setSidebarOpen(false)
+        tracking = false
+      }
+    }
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    window.addEventListener('touchend', onTouchEnd, { passive: true })
+
+    const el = document.getElementById(sidebarId)
+    el?.addEventListener('touchstart', onDrawerTouchStart, { passive: true })
+    el?.addEventListener('touchmove', onDrawerTouchMove, { passive: true })
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart as any)
+      window.removeEventListener('touchmove', onTouchMove as any)
+      window.removeEventListener('touchend', onTouchEnd as any)
+      el?.removeEventListener('touchstart', onDrawerTouchStart as any)
+      el?.removeEventListener('touchmove', onDrawerTouchMove as any)
+    }
+  }, [isMobile, sidebarOpen])
 
   return (
     <div className="app-shell">
@@ -81,6 +150,19 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
           header
         )}
       </header>
+      {/* Botón fijo arriba a la izquierda para ocultar/mostrar opciones (móvil y escritorio) */}
+      <button
+        type="button"
+        className={clsx('app-shell__fixed-toggle', {
+          'app-shell__fixed-toggle--active': isMobile ? sidebarOpen : !sidebarCollapsed
+        })}
+        onClick={() => (isMobile ? toggleSidebar() : toggleCollapsed())}
+        aria-controls={sidebarId}
+        aria-expanded={isMobile ? sidebarOpen : !sidebarCollapsed}
+        aria-label={(isMobile ? sidebarOpen : !sidebarCollapsed) ? 'Ocultar opciones' : 'Mostrar opciones'}
+      >
+        {(isMobile ? sidebarOpen : !sidebarCollapsed) ? '◀' : '▶'}
+      </button>
       {isMobile ? (
         <button
           type="button"
@@ -98,7 +180,7 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
           <span className="app-shell__drawer-handle__label">Opciones</span>
         </button>
       ) : null}
-      <div className="app-shell__body">
+      <div className={clsx('app-shell__body', { 'sidebar-collapsed': !isMobile && sidebarCollapsed })}>
         {isMobile ? (
           <div
             className={`app-shell__scrim ${sidebarOpen ? 'app-shell__scrim--visible' : ''}`}
@@ -108,7 +190,7 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
         ) : null}
         <aside
           id={sidebarId}
-          className={`app-shell__sidebar ${isMobile ? 'mobile' : ''} ${sidebarOpen ? 'open' : ''}`}
+          className={`app-shell__sidebar ${isMobile ? 'mobile' : ''} ${sidebarOpen ? 'open' : ''} ${!isMobile && sidebarCollapsed ? 'collapsed' : ''}`}
         >
           {sidebar}
         </aside>

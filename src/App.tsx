@@ -19,6 +19,8 @@ import introLogo from './data/daniel-alonso-gomez.png'
 const formatNumber = (value: number) => value.toLocaleString('es-ES')
 
 const CELEBRATION_CLEAR_DELAY = 1400
+// Tiempo límite por pregunta (segundos)
+const TIME_LIMIT = 20
 const SUCCESS_SOUND_DURATION = 0.8
 const SUCCESS_SOUND_PEAK_GAIN = 0.28
 const SUCCESS_SOUND_START_FREQ = 523.25
@@ -37,12 +39,15 @@ const getAudioContextConstructor = () => {
 function App() {
   const [selected, setSelected] = useState<MunicipioInfo | undefined>()
   const [showSplash, setShowSplash] = useState(true)
+  const [paused, setPaused] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<ExpandableSection, boolean>>({
     communities: true,
     provinces: true,
     details: true
   })
   const [floatingLabel, setFloatingLabel] = useState<string | undefined>()
+  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
+  const timerRef = useRef<number | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
   const ensureAudioContext = useCallback(async (): Promise<AudioContext | null> => {
@@ -119,6 +124,8 @@ function App() {
     setDificultadReto,
     soundEnabled,
     toggleSound,
+    theme,
+    toggleTheme,
     selectedCommunities,
     selectedProvinces,
     toggleCommunity: toggleCommunitySelection,
@@ -135,7 +142,8 @@ function App() {
     correctBlinkId,
     celebration,
     clearCelebration,
-    lockedMunicipios
+    lockedMunicipios,
+    registrarTiempoAgotado
   } = useGameStore(
     useShallow((state) => ({
       modo: state.modo,
@@ -144,6 +152,10 @@ function App() {
       setColorMode: state.setColorMode,
       dificultadReto: state.dificultadReto,
       setDificultadReto: state.setDificultadReto,
+      soundEnabled: state.soundEnabled,
+      toggleSound: state.toggleSound,
+      theme: state.theme,
+      toggleTheme: state.toggleTheme,
       selectedCommunities: state.selectedCommunities,
       selectedProvinces: state.selectedProvinces,
       toggleCommunity: state.toggleCommunity,
@@ -161,12 +173,13 @@ function App() {
       celebration: state.celebration,
       clearCelebration: state.clearCelebration,
       lockedMunicipios: state.lockedMunicipios,
-      soundEnabled: state.soundEnabled,
-      toggleSound: state.toggleSound
+      registrarTiempoAgotado: state.registrarTiempoAgotado
     }))
   )
 
   const activeQuestion = activeIndex >= 0 ? preguntas[activeIndex] : undefined
+  const totalPreguntas = preguntas.length
+  const respondidas = aciertos + fallos
 
   const selectedCommunitiesSet = useMemo(
     () => new Set<ComunidadId>(selectedCommunities),
@@ -205,12 +218,16 @@ function App() {
     })
   }, [availableMunicipioIds])
 
-  const remaining = preguntas.reduce(
-    (acc, pregunta) => (pregunta.estado === 'pendiente' ? acc + 1 : acc),
-    0
-  )
+  // Número de preguntas restantes podría calcularse si se necesita en el futuro
+  const progresoResueltas = totalPreguntas > 0 ? Math.round((respondidas / totalPreguntas) * 100) : 0
+  const progresoAciertos = totalPreguntas > 0 ? Math.round((aciertos / totalPreguntas) * 100) : 0
+  const timerPercent =
+    modo === 'reto' && activeQuestion
+      ? Math.max(0, Math.min((timeLeft / TIME_LIMIT) * 100, 100))
+      : 0
 
   const handleSelectMunicipio = (municipioId: string) => {
+    if (modo === 'reto' && paused) return
     if (modo === 'reto' && dificultadReto === 'facil' && lockedMunicipios?.has(municipioId)) {
       return
     }
@@ -232,21 +249,74 @@ function App() {
     const pool = tipo === 'reto-total' ? spanishMunicipiosInfo : availableMunicipios
     if (pool.length === 0) return
     setSelected(undefined)
+    setPaused(false)
     startQuiz({ dificultad: tipo, municipios: pool })
   }
 
   const quizFinalizado = modo === 'reto' && preguntas.length > 0 && completado
 
-  useCelebrationCue(celebration, clearCelebration, soundEnabled, playSuccessSound)
+useCelebrationCue(celebration, clearCelebration, soundEnabled, playSuccessSound)
 
-  const prevFallosRef = useRef(fallos)
+const prevFallosRef = useRef(fallos)
 
-  useEffect(() => {
-    if (soundEnabled && fallos > prevFallosRef.current) {
-      void playFailureSound()
+useEffect(() => {
+  if (soundEnabled && fallos > prevFallosRef.current) {
+    void playFailureSound()
+  }
+  prevFallosRef.current = fallos
+}, [fallos, soundEnabled, playFailureSound])
+
+useEffect(() => {
+  const body = document.body
+  body.classList.remove('theme-dark', 'theme-light')
+  body.classList.add(theme === 'oscuro' ? 'theme-dark' : 'theme-light')
+}, [theme])
+
+
+useEffect(() => {
+  if (modo !== 'reto' || activeIndex < 0 || !activeQuestion || totalPreguntas === 0) {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = null
     }
-    prevFallosRef.current = fallos
-  }, [fallos, soundEnabled, playFailureSound])
+    setTimeLeft(TIME_LIMIT)
+    return
+  }
+
+  if (paused) {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    return
+  }
+
+  if (timerRef.current) {
+    window.clearInterval(timerRef.current)
+  }
+  setTimeLeft(TIME_LIMIT)
+
+  timerRef.current = window.setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev <= 1) {
+        if (timerRef.current) {
+          window.clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+        registrarTiempoAgotado()
+        return TIME_LIMIT
+      }
+      return prev - 1
+    })
+  }, 1000)
+
+  return () => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+}, [modo, activeIndex, activeQuestion, registrarTiempoAgotado, totalPreguntas, paused])
 
   useEffect(() => {
     if (!showSplash) return
@@ -314,6 +384,14 @@ function App() {
                 <option value="altitud">Relieve</option>
               </select>
             </label>
+            <button
+              type="button"
+              className="theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={theme === 'oscuro' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+            >
+              {theme === 'oscuro' ? '☀️' : '🌙'}
+            </button>
           </div>
         </div>
       }
@@ -454,18 +532,6 @@ function App() {
                       </button>
                     </div>
                   </div>
-                  <div className="sound-toggle">
-                    <span className="sound-toggle__label">Sonido</span>
-                    <button
-                      type="button"
-                      className={clsx('sound-toggle__btn', {
-                        'sound-toggle__btn--off': !soundEnabled
-                      })}
-                      onClick={toggleSound}
-                    >
-                      {soundEnabled ? 'Activado' : 'Silenciado'}
-                    </button>
-                  </div>
                   <p className="panel__hint">
                     Elige un modo de reto. Haz clic en el municipio correcto cuando se muestre el nombre.
                   </p>
@@ -539,33 +605,84 @@ function App() {
                   <p>Selecciona uno de los modos de reto para comenzar.</p>
                 </div>
               ) : (
-                <div className="quiz-hud__status">
-                  <div className="quiz-hud__question">
-                    {quizFinalizado ? (
-                      <span>
-                        ¡Reto completado! Aciertos {aciertos} de {preguntas.length}
-                      </span>
-                    ) : (
-                      <span>
-                        ¿Dónde está <strong>{activeQuestion?.nombre}</strong>?
-                      </span>
-                    )}
-                  </div>
-                  <div className="quiz-hud__metrics">
-                    <span>Aciertos {aciertos}</span>
-                    <span>Fallos {fallos}</span>
-                    <span>Restantes {remaining}</span>
-                  </div>
-                  <div className="quiz-hud__actions">
+                <>
+                  <div className="quiz-hud__header">
                     <button
                       type="button"
-                      className="ghost-button"
-                      onClick={resetQuiz}
+                      className="quiz-hud__icon-btn"
+                      aria-label="Mostrar ayuda"
+                      onClick={() => toggleSection('details')}
                     >
-                      Resetear reto
+                      ?
                     </button>
+                    <div className="quiz-hud__question-box">
+                      <div className="quiz-hud__question-text">
+                        {quizFinalizado
+                          ? '¡Reto completado!'
+                          : `¿Dónde está ${activeQuestion?.nombre ?? ''}?`}
+                      </div>
+                      {!quizFinalizado ? (
+                        <div className="quiz-hud__timer">
+                          <div
+                            className="quiz-hud__timer-fill"
+                            style={{ width: `${timerPercent}%` }}
+                          />
+                        </div>
+                      ) : null}
+                      {!quizFinalizado ? (
+                        <div className="quiz-hud__timer-info">
+                          {paused ? 'Pausado' : `Tiempo restante: ${timeLeft}s`}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="quiz-hud__actions">
+                      <button
+                        type="button"
+                        className="quiz-hud__icon-btn"
+                        aria-label={paused ? 'Reanudar' : 'Pausar'}
+                        onClick={() => setPaused((p) => !p)}
+                        disabled={preguntas.length === 0 || quizFinalizado}
+                        title={paused ? 'Reanudar' : 'Pausar'}
+                      >
+                        {paused ? '▶' : '⏸'}
+                      </button>
+                      <button
+                        type="button"
+                        className={clsx('quiz-hud__icon-btn', {
+                          'quiz-hud__icon-btn--muted': !soundEnabled
+                        })}
+                        aria-label={soundEnabled ? 'Silenciar sonido' : 'Activar sonido'}
+                        onClick={toggleSound}
+                      >
+                        {soundEnabled ? '🔊' : '🔈'}
+                      </button>
+                      <button
+                        type="button"
+                        className="quiz-hud__icon-btn"
+                        aria-label="Reiniciar reto"
+                        onClick={resetQuiz}
+                      >
+                        ⟲
+                      </button>
+                    </div>
                   </div>
-                </div>
+                  <div className="quiz-hud__stats">
+                    <div className="quiz-hud__stat">
+                      Aciertos: <strong>{aciertos}</strong> ({progresoAciertos}%) · Fallos: {fallos}
+                    </div>
+                    <div className="quiz-hud__progress">
+                      <div className="quiz-hud__progress-bar">
+                        <div
+                          className="quiz-hud__progress-fill"
+                          style={{ width: `${progresoResueltas}%` }}
+                        />
+                      </div>
+                      <span>
+                        {respondidas}/{totalPreguntas} ({progresoResueltas}%)
+                      </span>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           ) : null}
@@ -589,6 +706,16 @@ function App() {
         {floatingLabel ? (
           <div className="map-floating-label" key={floatingLabel}>
             {floatingLabel}
+          </div>
+        ) : null}
+        {modo === 'reto' && preguntas.length > 0 ? (
+          <div className="quiz-hud__footer">
+            <div className="quiz-hud__badge">
+              Correctos: <strong>{aciertos}</strong> ({progresoAciertos}%)
+            </div>
+            <div className="quiz-hud__badge">
+              {respondidas}/{totalPreguntas} ({progresoResueltas}%)
+            </div>
           </div>
         ) : null}
         <MunicipioInfoPanel municipio={selected} />
