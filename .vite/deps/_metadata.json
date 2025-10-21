@@ -1,0 +1,64 @@
+{
+  "hash": "ab8a983d",
+  "configHash": "7ba10a20",
+  "lockfileHash": "cbf2a1a1",
+  "browserHash": "6f8f47e2",
+  "optimized": {
+    "d3-geo": {
+      "src": "../../node_modules/d3-geo/src/index.js",
+      "file": "d3-geo.js",
+      "fileHash": "7659deed",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "c184c7a6",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "62be26e8",
+      "needsInterop": true
+    },
+    "zustand": {
+      "src": "../../node_modules/zustand/esm/index.mjs",
+      "file": "zustand.js",
+      "fileHash": "c43daab2",
+      "needsInterop": false
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "b4e3811a",
+      "needsInterop": true
+    },
+    "clsx": {
+      "src": "../../node_modules/clsx/dist/clsx.mjs",
+      "file": "clsx.js",
+      "fileHash": "52103ab5",
+      "needsInterop": false
+    },
+    "zustand/react/shallow": {
+      "src": "../../node_modules/zustand/esm/react/shallow.mjs",
+      "file": "zustand_react_shallow.js",
+      "fileHash": "8e6c44e5",
+      "needsInterop": false
+    },
+    "topojson-client": {
+      "src": "../../node_modules/topojson-client/src/index.js",
+      "file": "topojson-client.js",
+      "fileHash": "5e1666db",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-UNLUE3XC": {
+      "file": "chunk-UNLUE3XC.js"
+    },
+    "chunk-5WRI5ZAA": {
+      "file": "chunk-5WRI5ZAA.js"
+    }
+  }
+}
