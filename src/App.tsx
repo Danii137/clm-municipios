@@ -48,6 +48,7 @@ function App() {
   const [floatingLabel, setFloatingLabel] = useState<string | undefined>()
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
   const timerRef = useRef<number | null>(null)
+  const prevQuestionRef = useRef<string | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
   const ensureAudioContext = useCallback(async (): Promise<AudioContext | null> => {
@@ -294,7 +295,12 @@ useEffect(() => {
   if (timerRef.current) {
     window.clearInterval(timerRef.current)
   }
-  setTimeLeft(TIME_LIMIT)
+  // Si la pregunta cambió, reinicia el tiempo; si venimos de una pausa, conserva el valor
+  const currentKey = String(activeQuestion.municipioId ?? activeIndex)
+  if (prevQuestionRef.current !== currentKey) {
+    setTimeLeft(TIME_LIMIT)
+    prevQuestionRef.current = currentKey
+  }
 
   timerRef.current = window.setInterval(() => {
     setTimeLeft((prev) => {
@@ -702,22 +708,22 @@ useEffect(() => {
             }
             onSelect={handleSelectMunicipio}
           />
+          {floatingLabel ? (
+            <div className="map-floating-label" key={floatingLabel}>
+              {floatingLabel}
+            </div>
+          ) : null}
+          {modo === 'reto' && preguntas.length > 0 ? (
+            <div className="quiz-hud__footer">
+              <div className="quiz-hud__badge">
+                Correctos: <strong>{aciertos}</strong> ({progresoAciertos}%)
+              </div>
+              <div className="quiz-hud__badge">
+                {respondidas}/{totalPreguntas} ({progresoResueltas}%)
+              </div>
+            </div>
+          ) : null}
         </div>
-        {floatingLabel ? (
-          <div className="map-floating-label" key={floatingLabel}>
-            {floatingLabel}
-          </div>
-        ) : null}
-        {modo === 'reto' && preguntas.length > 0 ? (
-          <div className="quiz-hud__footer">
-            <div className="quiz-hud__badge">
-              Correctos: <strong>{aciertos}</strong> ({progresoAciertos}%)
-            </div>
-            <div className="quiz-hud__badge">
-              {respondidas}/{totalPreguntas} ({progresoResueltas}%)
-            </div>
-          </div>
-        ) : null}
         <MunicipioInfoPanel municipio={selected} />
       </div>
       </AppShell>

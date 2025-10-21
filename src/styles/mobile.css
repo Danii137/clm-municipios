@@ -17,6 +17,9 @@
     align-items: center;
   }
 
+  /* Usamos el botón fijo arriba-izquierda; ocultamos el botón del header */
+  .app-shell__mobile-menu { display: none; }
+
   .app-shell__header-mobile-content {
     flex: 1;
     min-width: 0;

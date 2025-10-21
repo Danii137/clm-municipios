@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useEffect } from 'react'
 import type { ReactElement } from 'react'
 import type { Feature, Geometry } from 'geojson'
-import { geoMercator, geoPath } from 'd3-geo'
+import { geoMercator, geoPath, type GeoPath, type GeoPermissibleObjects } from 'd3-geo'
 import { select, pointer } from 'd3-selection'
 import { zoom, type ZoomBehavior } from 'd3-zoom'
 import clsx from 'clsx'
@@ -122,6 +122,12 @@ const bringFeatureToFront = (element: SVGPathElement | null) => {
   }
 }
 
+const isPointerEvent = (event: Event): event is PointerEvent => 'pointerType' in event
+
+const isTouchEvent = (event: Event): event is TouchEvent => 'touches' in event
+
+type PathGenerator = GeoPath<void, GeoPermissibleObjects>
+
 const MapCanvasComponent = ({
   features,
   highlightMunicipioId,
@@ -141,7 +147,10 @@ const MapCanvasComponent = ({
     [selectedProvinces]
   )
 
-  const { pathGenerator, projectedFeatures } = useMemo(() => {
+  const { pathGenerator, projectedFeatures } = useMemo<{
+    pathGenerator: PathGenerator | null
+    projectedFeatures: Feature<Geometry, Record<string, unknown>>[]
+  }>(() => {
     if (features.length === 0) {
       return {
         pathGenerator: null,
@@ -177,12 +186,14 @@ const MapCanvasComponent = ({
         [-ZOOM_PADDING, -ZOOM_PADDING],
         [WIDTH + ZOOM_PADDING, HEIGHT + ZOOM_PADDING]
       ])
-      .filter((event: any) => {
+      .filter((event) => {
         if (!event) return false
         if (event.type === 'wheel' || event.type === 'dblclick') return true
-        if (event.pointerType === 'mouse' || event.pointerType === 'pen') return true
-        if (event.pointerType === 'touch') {
-          return (event.touches?.length ?? 0) > 1
+        if (isTouchEvent(event)) {
+          return event.touches.length > 1
+        }
+        if (isPointerEvent(event)) {
+          return event.pointerType === 'mouse' || event.pointerType === 'pen'
         }
         return true
       })
@@ -215,10 +226,10 @@ const MapCanvasComponent = ({
     const dblHandler = (event: MouseEvent) => {
       // zoom in around pointer on double click
       event.preventDefault()
-      const point = pointer(event, rawSvg) as [number, number]
+      const point = pointer(event, rawSvg)
       try {
         zoomBehavior.scaleBy(svg, DOUBLE_CLICK_SCALE, point)
-      } catch (error) {
+      } catch {
         g.attr('transform', 'translate(0,0) scale(1)')
       }
     }
@@ -254,7 +265,7 @@ const MapCanvasComponent = ({
     })
     if (!feature) return undefined
     try {
-      const [cx, cy] = (pathGenerator as any).centroid(feature)
+      const [cx, cy] = pathGenerator.centroid(feature as GeoPermissibleObjects)
       if (!Number.isFinite(cx) || !Number.isFinite(cy)) return undefined
       return {
         x: cx,
@@ -291,7 +302,7 @@ const MapCanvasComponent = ({
                 const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
                 const comunidad = info?.comunidad
                 const nombreProp = info?.nombre ?? municipioId
-                const d = pathGenerator(feature as Feature)
+                const d = pathGenerator(feature as GeoPermissibleObjects)
                 if (!d) return null
 
                 const status = statuses?.[municipioId]

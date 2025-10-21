@@ -121,11 +121,11 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
     el?.addEventListener('touchmove', onDrawerTouchMove, { passive: true })
 
     return () => {
-      window.removeEventListener('touchstart', onTouchStart as any)
-      window.removeEventListener('touchmove', onTouchMove as any)
-      window.removeEventListener('touchend', onTouchEnd as any)
-      el?.removeEventListener('touchstart', onDrawerTouchStart as any)
-      el?.removeEventListener('touchmove', onDrawerTouchMove as any)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      el?.removeEventListener('touchstart', onDrawerTouchStart)
+      el?.removeEventListener('touchmove', onDrawerTouchMove)
     }
   }, [isMobile, sidebarOpen])
 

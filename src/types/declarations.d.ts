@@ -1,10 +1,12 @@
+import type { Topology } from 'topojson-specification'
+
 declare module '*.topojson' {
-  const value: any
+  const value: Topology
   export default value
 }
 
 declare module '*.topo.json' {
-  const value: any
+  const value: Topology
   export default value
 }
 

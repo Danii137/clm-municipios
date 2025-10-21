@@ -5,6 +5,7 @@ import provinciasMeta from './provincias.json' with { type: 'json' }
 import municipiosMeta from './municipios.json' with { type: 'json' }
 import { feature } from 'topojson-client'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
+import type { Topology, Objects } from 'topojson-specification'
 import type { ComunidadId, MunicipioInfo, ProvinciaId } from '../types/municipio'
 import { slugify } from '../utils/slug'
 
@@ -65,41 +66,46 @@ export type ProvinciaSummary = {
   comunidadNombre: string
 }
 
-const toFeatureCollection = (
-  topology: Record<string, unknown>
-) => {
-  const objectKey = Object.keys((topology as { objects: Record<string, unknown> }).objects)[0]
-  const geoResult = feature(
-    topology as any,
-    (topology as { objects: Record<string, unknown> }).objects[objectKey] as any
+const isFeatureCollection = <Props extends Record<string, unknown>>(
+  value: Feature<Geometry, Props> | FeatureCollection<Geometry, Props>
+): value is FeatureCollection<Geometry, Props> => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'features' in value &&
+    Array.isArray((value as { features?: unknown }).features)
   )
+}
 
-  if (
-    !geoResult ||
-    typeof geoResult !== 'object' ||
-    geoResult === null ||
-    !Array.isArray((geoResult as { features?: unknown }).features)
-  ) {
+type TopologyWithProps<Props extends Record<string, unknown>> = Topology<Objects<Props>>
+
+const toFeatureCollection = <Props extends Record<string, unknown>>(
+  topology: TopologyWithProps<Props>
+): FeatureCollection<Geometry, Props> => {
+  const objects = Object.values(topology.objects)
+  if (objects.length === 0) {
+    throw new Error('El TopoJSON no contiene objetos con geometría')
+  }
+
+  const geoResult = feature(topology, objects[0])
+  if (!isFeatureCollection<Props>(geoResult)) {
     throw new Error('El TopoJSON no contiene una FeatureCollection válida')
   }
 
-  return geoResult as unknown as FeatureCollection<Geometry, Record<string, unknown>>
+  return geoResult
 }
 
-const comunidadFeatures = toFeatureCollection(comunidadesTopo) as FeatureCollection<
-  Geometry,
-  ComunidadFeatureProperties
->
+const comunidadFeatures = toFeatureCollection<ComunidadFeatureProperties>(
+  comunidadesTopo as unknown as TopologyWithProps<ComunidadFeatureProperties>
+)
 
-const provinciaFeatures = toFeatureCollection(provinciasTopo) as FeatureCollection<
-  Geometry,
-  ProvinciaFeatureProperties
->
+const provinciaFeatures = toFeatureCollection<ProvinciaFeatureProperties>(
+  provinciasTopo as unknown as TopologyWithProps<ProvinciaFeatureProperties>
+)
 
-const municipioFeatures = toFeatureCollection(municipiosTopo) as FeatureCollection<
-  Geometry,
-  MunicipioFeatureProperties
->
+const municipioFeatures = toFeatureCollection<MunicipioFeatureProperties>(
+  municipiosTopo as unknown as TopologyWithProps<MunicipioFeatureProperties>
+)
 
 const provinciaRecords = provinciasMeta as ProvinciaCsvRecord[]
 const municipioRecords = municipiosMeta as MunicipioCsvRecord[]
@@ -260,7 +266,7 @@ for (const feature of municipioFeatures.features) {
   const featureId = String(feature.properties?.NATCODE ?? feature.id ?? metadata.COD_INE ?? '')
   if (!featureId) continue
 
-  ;(feature as any).id = featureId
+  feature.id = featureId
 
   const superficieKm2 = typeof metadata.SUPERFICIE === 'number' ? metadata.SUPERFICIE / 100 : undefined
   const densidadHabKm2 =

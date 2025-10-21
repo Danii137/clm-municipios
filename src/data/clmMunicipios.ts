@@ -1,10 +1,13 @@
 import topoData from './clm-municipios.topo.json' with { type: 'json' }
 import { feature } from 'topojson-client'
 import type { FeatureCollection, Feature, Geometry } from 'geojson'
+import type { Topology, Objects } from 'topojson-specification'
 import type { MunicipioInfo, ProvinciaId } from '../types/municipio'
 import { metadataPorNombre, buildMunicipioKey } from './municipioMetadata'
 
-const topology = topoData as any
+type TopologyObjects = Objects<Record<string, unknown>>
+
+const topology = topoData as unknown as Topology<TopologyObjects>
 
 const objectKey = Object.keys(topology.objects).find((key) => key.includes('municipal'))
 
