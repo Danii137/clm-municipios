@@ -113,6 +113,7 @@
     transition: transform 0.35s ease;
     z-index: 45;
     pointer-events: none;
+    padding: 0 clamp(1rem, 5vw, 1.5rem);
   }
 
   .municipio-info-panel.mobile.visible {
@@ -122,14 +123,21 @@
   .municipio-info-panel.mobile .municipio-info {
     pointer-events: auto;
     margin: 0 auto;
-    width: min(96vw, 500px);
+    width: min(96vw, 520px);
     background: rgba(11, 15, 32, 0.96);
     border: 1px solid rgba(99, 102, 241, 0.28);
     border-radius: 1.35rem 1.35rem 0 0;
-    padding: clamp(1.15rem, 4vw, 1.6rem);
-    max-height: min(75vh, 540px);
+    padding: clamp(1rem, 3.5vw, 1.45rem);
+    max-height: clamp(220px, 50vh, 440px);
     overflow-y: auto;
     box-shadow: 0 -18px 35px rgba(3, 7, 18, 0.65);
+  }
+
+  .municipio-info-panel.mobile:not(.visible) .municipio-info {
+    max-height: 0;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    overflow: hidden;
   }
 
   .municipio-info__header {

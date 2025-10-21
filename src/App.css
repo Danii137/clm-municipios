@@ -596,6 +596,8 @@
     stroke 0.2s ease, filter 0.2s ease;
   fill-opacity: 0.85;
   vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .map-canvas__feature:hover {
@@ -658,8 +660,8 @@
 
 /* Map feedback states */
 .map-canvas__feature--active {
-  animation: map-feature-pulse 1.3s ease-in-out infinite;
-  filter: drop-shadow(0 0 16px rgba(59, 130, 246, 0.65));
+  animation: map-feature-highlight 1.8s ease-in-out infinite;
+  filter: brightness(1.25) drop-shadow(0 0 16px rgba(79, 70, 229, 0.7));
 }
 
 .map-canvas__feature--current {
@@ -724,6 +726,25 @@
   }
   50% {
     filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.35));
+  }
+}
+
+@keyframes map-feature-highlight {
+  0% {
+    transform: scale(1);
+    filter: brightness(1.15) drop-shadow(0 0 12px rgba(59, 130, 246, 0.6));
+  }
+  45% {
+    transform: scale(1.08);
+    filter: brightness(1.45) drop-shadow(0 0 18px rgba(147, 197, 253, 0.75));
+  }
+  75% {
+    transform: scale(1.03);
+    filter: brightness(1.25) drop-shadow(0 0 14px rgba(96, 165, 250, 0.68));
+  }
+  100% {
+    transform: scale(1.01);
+    filter: brightness(1.15) drop-shadow(0 0 12px rgba(59, 130, 246, 0.6));
   }
 }
 
