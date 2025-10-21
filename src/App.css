@@ -447,6 +447,17 @@
   fill-opacity: 1;
 }
 
+.map-canvas__feature--quiz {
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.map-canvas__placeholder {
+  font-size: 1.4rem;
+  fill: #6366f1;
+  font-weight: 600;
+}
+
+/* Map feedback states */
 .map-canvas__feature--active {
   animation: map-feature-pulse 1.3s ease-in-out infinite;
   filter: drop-shadow(0 0 16px rgba(59, 130, 246, 0.65));
@@ -465,17 +476,6 @@
 
 .map-canvas__feature--celebration {
   filter: drop-shadow(0 0 24px rgba(236, 72, 153, 0.6));
-}
-
-
-.map-canvas__feature--quiz {
-  transition: fill 0.2s ease, stroke 0.2s ease;
-}
-
-.map-canvas__placeholder {
-  font-size: 1.4rem;
-  fill: #6366f1;
-  font-weight: 600;
 }
 
 .map-celebration {

@@ -41,6 +41,11 @@ const statusFill: Record<RespuestaEstado, string> = {
   pendiente: uniformFill
 }
 
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 10
+const DOUBLE_CLICK_SCALE = 1.5
+const DIM_FILL = '#9ca3af'
+
 const MapCanvasComponent = ({
   features,
   highlightMunicipioId,
@@ -82,23 +87,20 @@ const MapCanvasComponent = ({
   // set up d3 zoom behaviour only on the map svg
   useEffect(() => {
     if (!svgRef.current || !gRef.current) return
-    const svg = select(svgRef.current)
-    const g = select(gRef.current)
+    const svg = select<SVGSVGElement, unknown>(svgRef.current)
+    const g = select<SVGGElement, unknown>(gRef.current)
     const rawSvg = svgRef.current
 
     svg.style('touch-action', 'none')
     svg.style('cursor', 'grab')
 
-    const MIN_ZOOM = 0.5
-    const MAX_ZOOM = 10
-
-    const zb: ZoomBehavior<Element, unknown> = zoom()
+    const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
       .scaleExtent([MIN_ZOOM, MAX_ZOOM])
-      .on('zoom', (event: any) => {
+      .on('zoom', (event) => {
         g.attr('transform', event.transform.toString())
       })
 
-    svg.call(zb as any)
+    svg.call(zoomBehavior)
 
     // prevent page scroll when using wheel over the svg (allow wheel to zoom map)
     const wheelHandler = (e: WheelEvent) => {
@@ -118,15 +120,13 @@ const MapCanvasComponent = ({
     rawSvg.addEventListener('pointerleave', pointerUpHandler)
     rawSvg.addEventListener('pointercancel', pointerUpHandler)
 
-    const dblHandler = (e: MouseEvent) => {
+    const dblHandler = (event: MouseEvent) => {
       // zoom in around pointer on double click
-      e.preventDefault()
+      event.preventDefault()
+      const point = pointer(event, rawSvg) as [number, number]
       try {
-        const pt = pointer(e as any, rawSvg)
-        // use scaleBy via the zoom behavior
-        ;(svg as any).call((zb as any).scaleBy, 1.5, pt)
-      } catch (err) {
-        // fallback: reset transform
+        zoomBehavior.scaleBy(svg, DOUBLE_CLICK_SCALE, point)
+      } catch (error) {
         g.attr('transform', 'translate(0,0) scale(1)')
       }
     }
@@ -204,9 +204,6 @@ const MapCanvasComponent = ({
             // Si hay provincias seleccionadas, solo se encienden los municipios de esas provincias
             const isProvinceDimmed = selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
 
-            // Color gris cuando la provincia está deseleccionada
-            const DIM_FILL = '#9ca3af'
-
             const fill = isProvinceDimmed
               ? DIM_FILL
               : status
@@ -218,19 +215,21 @@ const MapCanvasComponent = ({
                     colorById.get(municipioId) ?? uniformFill
 
             const opacity = status ? 0.95 : isProvinceDimmed ? 0.6 : 0.85
+            const isCorrectTarget = correctBlinkId === municipioId
+            const showCelebration = celebration?.municipioId === municipioId
+            const featureClassName = clsx('map-canvas__feature', {
+              'map-canvas__feature--active': isActive,
+              'map-canvas__feature--dimmed': !status && isProvinceDimmed,
+              'map-canvas__feature--quiz': modo === 'reto',
+              'map-canvas__feature--correct-target': isCorrectTarget,
+              'map-canvas__feature--celebration': showCelebration
+            })
 
             return (
               <path
                 key={municipioId}
                 d={d}
-                className={clsx('map-canvas__feature', {
-                  'map-canvas__feature--active': isActive,
-                  'map-canvas__feature--dimmed': !status && isProvinceDimmed,
-                  'map-canvas__feature--quiz': modo === 'reto',
-                  'map-canvas__feature--correct-target': correctBlinkId === municipioId,
-                  'map-canvas__feature--celebration':
-                    celebration?.municipioId === municipioId
-                })}
+                className={featureClassName}
                 fill={fill}
                 stroke="#312e81"
                 strokeWidth={isActive ? 2.4 : 1.1}
