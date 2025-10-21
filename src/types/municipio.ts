@@ -1,11 +1,8 @@
 export type MunicipioId = string
 
-export type ProvinciaId =
-  | 'albacete'
-  | 'ciudad-real'
-  | 'cuenca'
-  | 'guadalajara'
-  | 'toledo'
+export type ComunidadId = string
+
+export type ProvinciaId = string
 
 export type NivelDificultad = 'estudio' | 'reto-10' | 'reto-total' | 'reto-provincia'
 
@@ -27,6 +24,7 @@ export type MunicipioInfo = {
   id: MunicipioId
   nombre: string
   provincia: ProvinciaId
+  comunidad: ComunidadId
   poblacion?: number
   superficieKm2?: number
   altitud?: number

@@ -1,35 +1,39 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { AppShell } from './components/layout/AppShell'
 import { MapCanvas } from './components/map/MapCanvas'
 import { MunicipioInfoPanel } from './components/map/MunicipioInfoPanel'
 import {
-  clmMunicipioFeatures,
-  clmMunicipiosById,
-  clmMunicipiosInfo
-} from './data/clmMunicipios'
-import { useGameStore, PROVINCES, type ColorMode } from './store/gameStore'
+  comunidades as comunidadSummaries,
+  provincias as provinciaSummaries,
+  spanishMunicipioFeatures,
+  spanishMunicipiosById,
+  spanishMunicipiosInfo
+} from './data/spainDivisions'
+import { useGameStore, type ColorMode, type CelebrationState } from './store/gameStore'
 import { useShallow } from 'zustand/react/shallow'
-import type { MunicipioInfo, ProvinciaId } from './types/municipio'
+import type { ComunidadId, MunicipioInfo } from './types/municipio'
 import './App.css'
 import introLogo from './data/daniel-alonso-gomez.png'
 
 const formatNumber = (value: number) => value.toLocaleString('es-ES')
 
-type ComunidadId = 'clm' | 'custom'
+const CELEBRATION_CLEAR_DELAY = 1400
+const SUCCESS_SOUND_DURATION = 0.8
+const SUCCESS_SOUND_PEAK_GAIN = 0.28
+const SUCCESS_SOUND_START_FREQ = 523.25
+const SUCCESS_SOUND_END_FREQ = 783.99
 
-const COMMUNITY_OPTIONS: Array<{
-  id: ComunidadId
-  label: string
-  provinces?: ProvinciaId[]
-}> = [
-  { id: 'clm', label: 'Castilla-La Mancha', provinces: [...PROVINCES] as ProvinciaId[] },
-  { id: 'custom', label: 'Personalizado' }
-]
+const getAudioContextConstructor = () => {
+  if (typeof window === 'undefined') return undefined
+  return (
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  )
+}
 
 function App() {
   const [selected, setSelected] = useState<MunicipioInfo | undefined>()
-  const [selectedCommunity, setSelectedCommunity] = useState<ComunidadId>('clm')
   const [showSplash, setShowSplash] = useState(true)
 
   const {
@@ -37,8 +41,10 @@ function App() {
     setModo,
     colorMode,
     setColorMode,
+    selectedCommunities,
     selectedProvinces,
-    setSelectedProvinces,
+    toggleCommunity: toggleCommunitySelection,
+    toggleProvince: toggleProvinceSelection,
     startQuiz,
     marcarMunicipio,
     resetQuiz,
@@ -47,15 +53,20 @@ function App() {
     aciertos,
     fallos,
     completado,
-    mapaEstados
+    mapaEstados,
+    correctBlinkId,
+    celebration,
+    clearCelebration
   } = useGameStore(
     useShallow((state) => ({
       modo: state.modo,
       setModo: state.setModo,
       colorMode: state.colorMode,
       setColorMode: state.setColorMode,
+      selectedCommunities: state.selectedCommunities,
       selectedProvinces: state.selectedProvinces,
-      setSelectedProvinces: state.setSelectedProvinces,
+      toggleCommunity: state.toggleCommunity,
+      toggleProvince: state.toggleProvince,
       startQuiz: state.startQuiz,
       marcarMunicipio: state.marcarMunicipio,
       resetQuiz: state.resetQuiz,
@@ -64,19 +75,51 @@ function App() {
       aciertos: state.aciertos,
       fallos: state.fallos,
       completado: state.completado,
-      mapaEstados: state.mapaEstados
+      mapaEstados: state.mapaEstados,
+      correctBlinkId: state.correctBlinkId,
+      celebration: state.celebration,
+      clearCelebration: state.clearCelebration
     }))
   )
 
   const activeQuestion = activeIndex >= 0 ? preguntas[activeIndex] : undefined
 
-  const availableMunicipios = useMemo(
-    () =>
-      clmMunicipiosInfo.filter((municipio) =>
-        selectedProvinces.includes(municipio.provincia)
-      ),
-    [selectedProvinces]
+  const selectedCommunitiesSet = useMemo(
+    () => new Set<ComunidadId>(selectedCommunities),
+    [selectedCommunities]
   )
+
+  const activeProvinces = useMemo(
+    () =>
+      provinciaSummaries.filter((provincia) =>
+        selectedCommunitiesSet.has(provincia.comunidadId)
+      ),
+    [selectedCommunitiesSet]
+  )
+
+  const availableMunicipios = useMemo(() => {
+    if (!selectedProvinces.length) {
+      return [...spanishMunicipiosInfo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    }
+    const provincesSet = new Set(selectedProvinces)
+    return spanishMunicipiosInfo
+      .filter((municipio) => provincesSet.has(municipio.provincia))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+  }, [selectedProvinces])
+
+  const availableMunicipioIds = useMemo(() => new Set(availableMunicipios.map((m) => m.id)), [
+    availableMunicipios
+  ])
+
+  const visibleFeatures = useMemo(() => {
+    if (availableMunicipioIds.size === spanishMunicipiosInfo.length) {
+      return spanishMunicipioFeatures
+    }
+    return spanishMunicipioFeatures.filter((feature) => {
+      const featureId = String(feature.id ?? feature.properties?.NATCODE ?? '')
+      return featureId && availableMunicipioIds.has(featureId)
+    })
+  }, [availableMunicipioIds])
 
   const remaining = preguntas.reduce(
     (acc, pregunta) => (pregunta.estado === 'pendiente' ? acc + 1 : acc),
@@ -84,7 +127,7 @@ function App() {
   )
 
   const handleSelectMunicipio = (municipioId: string) => {
-    const info = clmMunicipiosById.get(municipioId)
+    const info = spanishMunicipiosById.get(municipioId)
     if (info) setSelected(info)
 
     if (modo === 'reto') {
@@ -92,33 +135,16 @@ function App() {
     }
   }
 
-  const toggleProvince = (provincia: ProvinciaId) => {
-    if (selectedProvinces.includes(provincia)) {
-      if (selectedProvinces.length === 1) return
-      setSelectedProvinces(selectedProvinces.filter((prov) => prov !== provincia))
-    } else {
-      setSelectedProvinces([...selectedProvinces, provincia])
-    }
-    setSelectedCommunity('custom')
-  }
-
   const startReto = (tipo: 'reto-10' | 'reto-provincia' | 'reto-total') => {
-    const pool =
-      tipo === 'reto-total' ? clmMunicipiosInfo : availableMunicipios
+    const pool = tipo === 'reto-total' ? spanishMunicipiosInfo : availableMunicipios
     if (pool.length === 0) return
     setSelected(undefined)
     startQuiz({ dificultad: tipo, municipios: pool })
   }
 
-  const handleCommunityChange = (communityId: ComunidadId) => {
-    setSelectedCommunity(communityId)
-    const community = COMMUNITY_OPTIONS.find((option) => option.id === communityId)
-    if (community?.provinces) {
-      setSelectedProvinces(community.provinces)
-    }
-  }
-
   const quizFinalizado = modo === 'reto' && preguntas.length > 0 && completado
+
+  useCelebrationCue(celebration, clearCelebration)
 
   useEffect(() => {
     if (!showSplash) return
@@ -144,23 +170,10 @@ function App() {
       header={
         <div className="header">
           <div className="header__title">
-            <h1>Castilla-La Mancha Challenge</h1>
-            <p>Estudia o reta tu memoria geográfica municipio a municipio.</p>
+            <h1>España Municipios Challenge</h1>
+            <p>Activa las comunidades y provincias que quieras estudiar o utilizar en el reto.</p>
           </div>
           <div className="header__controls">
-            <label className="select-control">
-              <span>Comunidad</span>
-              <select
-                value={selectedCommunity}
-                onChange={(event) => handleCommunityChange(event.target.value as ComunidadId)}
-              >
-                {COMMUNITY_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="mode-switch">
               <button
                 type="button"
@@ -185,14 +198,14 @@ function App() {
               </button>
             </div>
             <label className="select-control">
-              <span>Colores</span>
+              <span>Paleta</span>
               <select
                 value={colorMode}
                 onChange={(event) =>
                   setColorMode(event.target.value as ColorMode)
                 }
               >
-                <option value="uniforme">Uniforme</option>
+                <option value="colorido">Colorido</option>
                 <option value="por-provincia">Por provincia</option>
               </select>
             </label>
@@ -203,20 +216,41 @@ function App() {
         <div className="sidebar">
           <section className="panel">
             <div className="panel__header">
+              <h2>Comunidades</h2>
+              <p>Activa zonas del mapa para practicar.</p>
+            </div>
+            <div className="chip-grid">
+              {comunidadSummaries.map((comunidad) => (
+                <button
+                  key={comunidad.id}
+                  type="button"
+                  className={clsx('chip', {
+                    'chip--active': selectedCommunities.includes(comunidad.id)
+                  })}
+                  onClick={() => toggleCommunitySelection(comunidad.id)}
+                >
+                  {comunidad.nombre}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel__header">
               <h2>Provincias</h2>
               <p>Selecciona sobre qué provincias quieres practicar.</p>
             </div>
             <div className="chip-grid">
-              {PROVINCES.map((provincia) => (
+              {(activeProvinces.length ? activeProvinces : provinciaSummaries).map((provincia) => (
                 <button
-                  key={provincia}
+                  key={provincia.id}
                   type="button"
                   className={clsx('chip', {
-                    'chip--active': selectedProvinces.includes(provincia)
+                    'chip--active': selectedProvinces.includes(provincia.id)
                   })}
-                  onClick={() => toggleProvince(provincia)}
+                  onClick={() => toggleProvinceSelection(provincia.id)}
                 >
-                  {provincia.replace('-', ' ')}
+                  {provincia.nombre}
                 </button>
               ))}
             </div>
@@ -336,13 +370,15 @@ function App() {
           ) : null}
 
           <MapCanvas
-            features={clmMunicipioFeatures}
+            features={visibleFeatures}
             highlightMunicipioId={selected?.id}
             colorMode={colorMode}
             modo={modo}
-            infoById={clmMunicipiosById}
+            infoById={spanishMunicipiosById}
             selectedProvinces={selectedProvinces}
             statuses={mapaEstados}
+            correctBlinkId={correctBlinkId}
+            celebration={celebration}
             onSelect={handleSelectMunicipio}
           />
         </div>
@@ -354,3 +390,58 @@ function App() {
 }
 
 export default App
+
+function useCelebrationCue(
+  celebration: CelebrationState | undefined,
+  onClear: () => void
+) {
+  const audioContextRef = useRef<AudioContext | null>(null)
+
+  const playSuccessSound = useCallback(async () => {
+    const AudioContextCtor = getAudioContextConstructor()
+    if (!AudioContextCtor) return
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextCtor()
+    }
+
+    const ctx = audioContextRef.current
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume()
+      } catch {
+        return
+      }
+    }
+
+    const now = ctx.currentTime
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    oscillator.type = 'triangle'
+    oscillator.frequency.setValueAtTime(SUCCESS_SOUND_START_FREQ, now)
+    oscillator.frequency.exponentialRampToValueAtTime(SUCCESS_SOUND_END_FREQ, now + 0.35)
+
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(SUCCESS_SOUND_PEAK_GAIN, now + 0.04)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + SUCCESS_SOUND_DURATION)
+
+    oscillator.connect(gain).connect(ctx.destination)
+    oscillator.start(now)
+    oscillator.stop(now + SUCCESS_SOUND_DURATION)
+  }, [])
+
+  useEffect(() => {
+    if (!celebration) return
+
+    const timeoutId = setTimeout(() => {
+      onClear()
+    }, CELEBRATION_CLEAR_DELAY)
+
+    void playSuccessSound()
+
+    return () => {
+      clearTimeout(timeoutId)
+    }
+  }, [celebration, onClear, playSuccessSound])
+}

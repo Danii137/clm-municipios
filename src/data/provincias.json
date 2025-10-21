@@ -1,0 +1,366 @@
+[
+  {
+    "COD_PROV": "01",
+    "PROVINCIA": "Araba/Álava",
+    "COD_CA": "16",
+    "COMUNIDAD_AUTONOMA": "País Vasco/Euskadi",
+    "CAPITAL": "Vitoria-Gasteiz"
+  },
+  {
+    "COD_PROV": "02",
+    "PROVINCIA": "Albacete",
+    "COD_CA": "08",
+    "COMUNIDAD_AUTONOMA": "Castilla-La Mancha",
+    "CAPITAL": "Albacete"
+  },
+  {
+    "COD_PROV": "03",
+    "PROVINCIA": "Alacant/Alicante",
+    "COD_CA": "10",
+    "COMUNIDAD_AUTONOMA": "Comunitat Valenciana",
+    "CAPITAL": "Alacant/Alicante"
+  },
+  {
+    "COD_PROV": "04",
+    "PROVINCIA": "Almería",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Almería"
+  },
+  {
+    "COD_PROV": "05",
+    "PROVINCIA": "Ávila",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Ávila"
+  },
+  {
+    "COD_PROV": "06",
+    "PROVINCIA": "Badajoz",
+    "COD_CA": "11",
+    "COMUNIDAD_AUTONOMA": "Extremadura",
+    "CAPITAL": "Badajoz"
+  },
+  {
+    "COD_PROV": "07",
+    "PROVINCIA": "Illes Balears",
+    "COD_CA": "04",
+    "COMUNIDAD_AUTONOMA": "Illes Balears",
+    "CAPITAL": "Palma"
+  },
+  {
+    "COD_PROV": "08",
+    "PROVINCIA": "Barcelona",
+    "COD_CA": "09",
+    "COMUNIDAD_AUTONOMA": "Cataluña/Catalunya",
+    "CAPITAL": "Barcelona"
+  },
+  {
+    "COD_PROV": "09",
+    "PROVINCIA": "Burgos",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Burgos"
+  },
+  {
+    "COD_PROV": "10",
+    "PROVINCIA": "Cáceres",
+    "COD_CA": "11",
+    "COMUNIDAD_AUTONOMA": "Extremadura",
+    "CAPITAL": "Cáceres"
+  },
+  {
+    "COD_PROV": "11",
+    "PROVINCIA": "Cádiz",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Cádiz"
+  },
+  {
+    "COD_PROV": "12",
+    "PROVINCIA": "Castelló/Castellón",
+    "COD_CA": "10",
+    "COMUNIDAD_AUTONOMA": "Comunitat Valenciana",
+    "CAPITAL": "Castelló de la Plana"
+  },
+  {
+    "COD_PROV": "13",
+    "PROVINCIA": "Ciudad Real",
+    "COD_CA": "08",
+    "COMUNIDAD_AUTONOMA": "Castilla-La Mancha",
+    "CAPITAL": "Ciudad Real"
+  },
+  {
+    "COD_PROV": "14",
+    "PROVINCIA": "Córdoba",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Córdoba"
+  },
+  {
+    "COD_PROV": "15",
+    "PROVINCIA": "A Coruña",
+    "COD_CA": "12",
+    "COMUNIDAD_AUTONOMA": "Galicia",
+    "CAPITAL": "A Coruña"
+  },
+  {
+    "COD_PROV": "16",
+    "PROVINCIA": "Cuenca",
+    "COD_CA": "08",
+    "COMUNIDAD_AUTONOMA": "Castilla-La Mancha",
+    "CAPITAL": "Cuenca"
+  },
+  {
+    "COD_PROV": "17",
+    "PROVINCIA": "Girona",
+    "COD_CA": "09",
+    "COMUNIDAD_AUTONOMA": "Cataluña/Catalunya",
+    "CAPITAL": "Girona"
+  },
+  {
+    "COD_PROV": "18",
+    "PROVINCIA": "Granada",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Granada"
+  },
+  {
+    "COD_PROV": "19",
+    "PROVINCIA": "Guadalajara",
+    "COD_CA": "08",
+    "COMUNIDAD_AUTONOMA": "Castilla-La Mancha",
+    "CAPITAL": "Guadalajara"
+  },
+  {
+    "COD_PROV": "20",
+    "PROVINCIA": "Gipuzkoa",
+    "COD_CA": "16",
+    "COMUNIDAD_AUTONOMA": "País Vasco/Euskadi",
+    "CAPITAL": "Donostia/San Sebastián"
+  },
+  {
+    "COD_PROV": "21",
+    "PROVINCIA": "Huelva",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Huelva"
+  },
+  {
+    "COD_PROV": "22",
+    "PROVINCIA": "Huesca",
+    "COD_CA": "02",
+    "COMUNIDAD_AUTONOMA": "Aragón",
+    "CAPITAL": "Huesca"
+  },
+  {
+    "COD_PROV": "23",
+    "PROVINCIA": "Jaén",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Jaén"
+  },
+  {
+    "COD_PROV": "24",
+    "PROVINCIA": "León",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "León"
+  },
+  {
+    "COD_PROV": "25",
+    "PROVINCIA": "Lleida",
+    "COD_CA": "09",
+    "COMUNIDAD_AUTONOMA": "Cataluña/Catalunya",
+    "CAPITAL": "Lleida"
+  },
+  {
+    "COD_PROV": "26",
+    "PROVINCIA": "La Rioja",
+    "COD_CA": "17",
+    "COMUNIDAD_AUTONOMA": "La Rioja",
+    "CAPITAL": "Logroño"
+  },
+  {
+    "COD_PROV": "27",
+    "PROVINCIA": "Lugo",
+    "COD_CA": "12",
+    "COMUNIDAD_AUTONOMA": "Galicia",
+    "CAPITAL": "Lugo"
+  },
+  {
+    "COD_PROV": "28",
+    "PROVINCIA": "Madrid",
+    "COD_CA": "13",
+    "COMUNIDAD_AUTONOMA": "Comunidad de Madrid",
+    "CAPITAL": "Madrid"
+  },
+  {
+    "COD_PROV": "29",
+    "PROVINCIA": "Málaga",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Málaga"
+  },
+  {
+    "COD_PROV": "30",
+    "PROVINCIA": "Murcia",
+    "COD_CA": "14",
+    "COMUNIDAD_AUTONOMA": "Región de Murcia",
+    "CAPITAL": "Murcia"
+  },
+  {
+    "COD_PROV": "31",
+    "PROVINCIA": "Navarra",
+    "COD_CA": "15",
+    "COMUNIDAD_AUTONOMA": "Comunidad Foral de Navarra",
+    "CAPITAL": "Pamplona/Iruña"
+  },
+  {
+    "COD_PROV": "32",
+    "PROVINCIA": "Ourense",
+    "COD_CA": "12",
+    "COMUNIDAD_AUTONOMA": "Galicia",
+    "CAPITAL": "Ourense"
+  },
+  {
+    "COD_PROV": "33",
+    "PROVINCIA": "Asturias",
+    "COD_CA": "03",
+    "COMUNIDAD_AUTONOMA": "Principado de Asturias",
+    "CAPITAL": "Oviedo"
+  },
+  {
+    "COD_PROV": "34",
+    "PROVINCIA": "Palencia",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Palencia"
+  },
+  {
+    "COD_PROV": "35",
+    "PROVINCIA": "Las Palmas",
+    "COD_CA": "05",
+    "COMUNIDAD_AUTONOMA": "Canarias",
+    "CAPITAL": "Las Palmas de Gran Canaria"
+  },
+  {
+    "COD_PROV": "36",
+    "PROVINCIA": "Pontevedra",
+    "COD_CA": "12",
+    "COMUNIDAD_AUTONOMA": "Galicia",
+    "CAPITAL": "Pontevedra"
+  },
+  {
+    "COD_PROV": "37",
+    "PROVINCIA": "Salamanca",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Salamanca"
+  },
+  {
+    "COD_PROV": "38",
+    "PROVINCIA": "Santa Cruz de Tenerife",
+    "COD_CA": "05",
+    "COMUNIDAD_AUTONOMA": "Canarias",
+    "CAPITAL": "Santa Cruz de Tenerife"
+  },
+  {
+    "COD_PROV": "39",
+    "PROVINCIA": "Cantabria",
+    "COD_CA": "06",
+    "COMUNIDAD_AUTONOMA": "Cantabria",
+    "CAPITAL": "Santander"
+  },
+  {
+    "COD_PROV": "40",
+    "PROVINCIA": "Segovia",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Segovia"
+  },
+  {
+    "COD_PROV": "41",
+    "PROVINCIA": "Sevilla",
+    "COD_CA": "01",
+    "COMUNIDAD_AUTONOMA": "Andalucía",
+    "CAPITAL": "Sevilla"
+  },
+  {
+    "COD_PROV": "42",
+    "PROVINCIA": "Soria",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Soria"
+  },
+  {
+    "COD_PROV": "43",
+    "PROVINCIA": "Tarragona",
+    "COD_CA": "09",
+    "COMUNIDAD_AUTONOMA": "Cataluña/Catalunya",
+    "CAPITAL": "Tarragona"
+  },
+  {
+    "COD_PROV": "44",
+    "PROVINCIA": "Teruel",
+    "COD_CA": "02",
+    "COMUNIDAD_AUTONOMA": "Aragón",
+    "CAPITAL": "Teruel"
+  },
+  {
+    "COD_PROV": "45",
+    "PROVINCIA": "Toledo",
+    "COD_CA": "08",
+    "COMUNIDAD_AUTONOMA": "Castilla-La Mancha",
+    "CAPITAL": "Toledo"
+  },
+  {
+    "COD_PROV": "46",
+    "PROVINCIA": "València/Valencia",
+    "COD_CA": "10",
+    "COMUNIDAD_AUTONOMA": "Comunitat Valenciana",
+    "CAPITAL": "València"
+  },
+  {
+    "COD_PROV": "47",
+    "PROVINCIA": "Valladolid",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Valladolid"
+  },
+  {
+    "COD_PROV": "48",
+    "PROVINCIA": "Bizkaia",
+    "COD_CA": "16",
+    "COMUNIDAD_AUTONOMA": "País Vasco/Euskadi",
+    "CAPITAL": "Bilbao"
+  },
+  {
+    "COD_PROV": "49",
+    "PROVINCIA": "Zamora",
+    "COD_CA": "07",
+    "COMUNIDAD_AUTONOMA": "Castilla y León",
+    "CAPITAL": "Zamora"
+  },
+  {
+    "COD_PROV": "50",
+    "PROVINCIA": "Zaragoza",
+    "COD_CA": "02",
+    "COMUNIDAD_AUTONOMA": "Aragón",
+    "CAPITAL": "Zaragoza"
+  },
+  {
+    "COD_PROV": "51",
+    "PROVINCIA": "Ceuta",
+    "COD_CA": "18",
+    "COMUNIDAD_AUTONOMA": "Ciudad Autónoma de Ceuta",
+    "CAPITAL": "Ceuta"
+  },
+  {
+    "COD_PROV": "52",
+    "PROVINCIA": "Melilla",
+    "COD_CA": "19",
+    "COMUNIDAD_AUTONOMA": "Ciudad Autónoma de Melilla",
+    "CAPITAL": "Melilla"
+  }
+]

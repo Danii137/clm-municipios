@@ -109,6 +109,7 @@ for (const line of csvLines) {
     id: codIne,
     nombre,
     provincia: provinciaId,
+    comunidad: 'castilla-la-mancha',
     poblacion,
     superficieKm2: superficie,
     altitud,

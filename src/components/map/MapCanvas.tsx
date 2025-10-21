@@ -25,14 +25,6 @@ type MapCanvasProps = {
 const WIDTH = 760
 const HEIGHT = 520
 
-const provincePalette: Record<string, string> = {
-  toledo: '#818cf8',
-  'ciudad-real': '#f97316',
-  cuenca: '#22d3ee',
-  guadalajara: '#8b5cf6',
-  albacete: '#34d399'
-}
-
 const uniformFill = '#c7d2fe'
 
 const statusFill: Record<RespuestaEstado, string> = {
@@ -45,6 +37,34 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 10
 const DOUBLE_CLICK_SCALE = 1.5
 const DIM_FILL = '#9ca3af'
+
+const provinceColorCache = new Map<string, string>()
+
+const colorForProvince = (provinciaId: string | undefined) => {
+  if (!provinciaId) return '#fbbf24'
+  if (provinceColorCache.has(provinciaId)) {
+    return provinceColorCache.get(provinciaId) as string
+  }
+
+  let hash = 0
+  for (let i = 0; i < provinciaId.length; i += 1) {
+    hash = (hash << 5) - hash + provinciaId.charCodeAt(i)
+    hash |= 0
+  }
+
+  const hue = Math.abs(hash) % 360
+  const color = `hsl(${hue}, 65%, 60%)`
+  provinceColorCache.set(provinciaId, color)
+  return color
+}
+
+const bringFeatureToFront = (element: SVGPathElement | null) => {
+  if (!element) return
+  const parent = element.parentNode
+  if (parent && typeof (parent as SVGGElement).appendChild === 'function') {
+    ;(parent as SVGGElement).appendChild(element)
+  }
+}
 
 const MapCanvasComponent = ({
   features,
@@ -207,15 +227,13 @@ const MapCanvasComponent = ({
                 const isProvinceDimmed =
                   selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
 
-                const fill = isProvinceDimmed
-                  ? DIM_FILL
-                  : status
-                    ? statusFill[status]
-                    : colorMode === 'por-provincia'
-                      ? // en modo por-provincia mantenemos el comportamiento anterior
-                        provincePalette[provincia] ?? '#fbbf24'
-                      : // modo uniforme ahora usa colores individuales por municipio
-                        colorById.get(municipioId) ?? uniformFill
+            const fill = isProvinceDimmed
+              ? DIM_FILL
+              : status
+                ? statusFill[status]
+                : colorMode === 'por-provincia'
+                  ? colorForProvince(provincia)
+                  : colorById.get(municipioId) ?? uniformFill
 
                 const opacity = status ? 0.95 : isProvinceDimmed ? 0.6 : 0.85
                 const isCorrectTarget = correctBlinkId === municipioId
@@ -236,13 +254,15 @@ const MapCanvasComponent = ({
                     fill={fill}
                     stroke="#312e81"
                     strokeWidth={isActive ? 2.4 : 1.1}
+                    vectorEffect="non-scaling-stroke"
                     fillOpacity={opacity}
-                    onClick={() => onSelect?.(municipioId)}
-                  >
-                    <title>{nombreProp}</title>
-                  </path>
-                )
-              })
+                onClick={() => onSelect?.(municipioId)}
+                onMouseEnter={(event) => bringFeatureToFront(event.currentTarget)}
+              >
+                <title>{nombreProp}</title>
+              </path>
+            )
+          })
             : null}
           {celebrationPoint ? (
             <g

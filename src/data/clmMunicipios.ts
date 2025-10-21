@@ -63,6 +63,7 @@ const features: FeatureWithInfo[] = collection.features.map((feat) => {
     id,
     nombre: metadata?.nombre ?? nombre,
     provincia,
+    comunidad: 'castilla-la-mancha',
     poblacion: metadata?.poblacion,
     superficieKm2: metadata?.superficieKm2,
     altitud: metadata?.altitud,

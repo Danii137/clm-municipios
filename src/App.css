@@ -434,17 +434,23 @@
   fill: rgba(15, 23, 42, 0.6);
   stroke: rgba(59, 130, 246, 0.25);
   stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .map-canvas__feature {
   cursor: pointer;
-  transition: transform 0.2s ease, fill-opacity 0.2s ease, stroke-width 0.2s ease;
+  transition: transform 0.2s ease, fill-opacity 0.2s ease, stroke-width 0.2s ease,
+    stroke 0.2s ease, filter 0.2s ease;
   fill-opacity: 0.85;
+  vector-effect: non-scaling-stroke;
 }
 
 .map-canvas__feature:hover {
-  transform: scale(1.006);
+  transform: translateY(-1px) scale(1.01);
   fill-opacity: 1;
+  stroke-width: 2.4;
+  stroke: #f8fafc;
+  filter: drop-shadow(0 0 10px rgba(148, 163, 184, 0.55));
 }
 
 .map-canvas__feature--quiz {

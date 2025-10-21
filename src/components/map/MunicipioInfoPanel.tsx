@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { MunicipioInfo } from '../../types/municipio'
+import type { ComunidadId, MunicipioInfo, ProvinciaId } from '../../types/municipio'
+import { comunidades as comunidadSummaries, provincias as provinciaSummaries } from '../../data/spainDivisions'
 
 type MunicipioInfoPanelProps = {
   municipio?: MunicipioInfo
@@ -8,8 +9,23 @@ type MunicipioInfoPanelProps = {
 const EMPTY_STATE: MunicipioInfo = {
   id: 'placeholder',
   nombre: 'Selecciona un municipio',
-  provincia: 'toledo'
+  provincia: 'toledo',
+  comunidad: 'castilla-la-mancha'
 }
+
+const provinciaNombreById = new Map<ProvinciaId, string>(
+  provinciaSummaries.map((provincia) => [provincia.id, provincia.nombre])
+)
+
+const formatProvincia = (provinciaId: string) =>
+  provinciaNombreById.get(provinciaId as ProvinciaId) ?? provinciaId
+
+const comunidadNombreById = new Map<ComunidadId, string>(
+  comunidadSummaries.map((comunidad) => [comunidad.id, comunidad.nombre])
+)
+
+const formatComunidad = (comunidadId: string) =>
+  comunidadNombreById.get(comunidadId as ComunidadId) ?? comunidadId
 
 export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
   const [isVisible, setIsVisible] = useState(true)
@@ -73,8 +89,12 @@ export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
         {municipio ? (
           <dl className="municipio-info__list">
             <div>
+              <dt>Comunidad</dt>
+              <dd>{formatComunidad(municipio.comunidad)}</dd>
+            </div>
+            <div>
               <dt>Provincia</dt>
-              <dd>{municipio.provincia}</dd>
+              <dd>{formatProvincia(municipio.provincia)}</dd>
             </div>
             {typeof municipio.poblacion === 'number' ? (
               <div>
@@ -85,7 +105,12 @@ export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
             {typeof municipio.superficieKm2 === 'number' ? (
               <div>
                 <dt>Superficie</dt>
-                <dd>{municipio.superficieKm2.toLocaleString('es-ES')} km²</dd>
+                <dd>
+                  {(municipio.superficieKm2 * 100).toLocaleString('es-ES', {
+                    maximumFractionDigits: 2
+                  })}{' '}
+                  ha
+                </dd>
               </div>
             ) : null}
             {typeof municipio.altitud === 'number' ? (
