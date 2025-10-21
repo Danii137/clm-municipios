@@ -6,6 +6,9 @@
     width: 100%;
     padding: clamp(1rem, 4vw, 1.5rem);
     align-items: stretch;
+    height: calc(100vh - var(--header-height, 80px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .app-shell__sidebar.mobile {

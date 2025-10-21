@@ -1,15 +1,18 @@
 :root {
   color-scheme: dark;
+  --header-height: 80px;
 }
 
 /* Solo el mapa permite zoom, el resto de la app permanece fijo */
 #root {
   margin: 0;
   min-height: 100vh;
+  max-height: 100vh;
   font-family: 'Poppins', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: radial-gradient(circle at top, #1a1f4b 0%, #060911 55%, #05060d 100%);
   color: #f8fafc;
-  touch-action: none;
+  touch-action: pan-y pinch-zoom;
+  overflow-y: auto;
 }
 
 .app-shell {
@@ -29,6 +32,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: var(--header-height);
 }
 
 .app-shell__mobile-menu {
