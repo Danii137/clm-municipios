@@ -178,85 +178,90 @@ const MapCanvasComponent = ({
   return (
     <div className="map-container map-canvas">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
         aria-label="Mapa vectorial de Castilla-La Mancha"
       >
-        <rect
-          width={WIDTH}
-          height={HEIGHT}
-          rx={24}
-          className="map-canvas__background"
-        />
-        {pathGenerator && projectedFeatures.length > 0 ? (
-          projectedFeatures.map((feature): ReactElement | null => {
-            const municipioId = String(
-              feature.properties?.id ?? feature.id ?? 'sin-id'
-            )
-            const info = infoById.get(municipioId)
-            const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
-            const nombreProp = info?.nombre ?? municipioId
-            const d = pathGenerator(feature as Feature)
-            if (!d) return null
+        <g ref={gRef}>
+          <rect
+            width={WIDTH}
+            height={HEIGHT}
+            rx={24}
+            className="map-canvas__background"
+          />
+          {pathGenerator && projectedFeatures.length > 0
+            ? projectedFeatures.map((feature): ReactElement | null => {
+                const municipioId = String(
+                  feature.properties?.id ?? feature.id ?? 'sin-id'
+                )
+                const info = infoById.get(municipioId)
+                const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
+                const nombreProp = info?.nombre ?? municipioId
+                const d = pathGenerator(feature as Feature)
+                if (!d) return null
 
-            const status = statuses?.[municipioId]
-            const isActive = highlightMunicipioId === municipioId
-            // Si hay provincias seleccionadas, solo se encienden los municipios de esas provincias
-            const isProvinceDimmed = selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
+                const status = statuses?.[municipioId]
+                const isActive = highlightMunicipioId === municipioId
+                // Si hay provincias seleccionadas, solo se encienden los municipios de esas provincias
+                const isProvinceDimmed =
+                  selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
 
-            const fill = isProvinceDimmed
-              ? DIM_FILL
-              : status
-                ? statusFill[status]
-                : colorMode === 'por-provincia'
-                  ? // en modo por-provincia mantenemos el comportamiento anterior
-                    provincePalette[provincia] ?? '#fbbf24'
-                  : // modo uniforme ahora usa colores individuales por municipio
-                    colorById.get(municipioId) ?? uniformFill
+                const fill = isProvinceDimmed
+                  ? DIM_FILL
+                  : status
+                    ? statusFill[status]
+                    : colorMode === 'por-provincia'
+                      ? // en modo por-provincia mantenemos el comportamiento anterior
+                        provincePalette[provincia] ?? '#fbbf24'
+                      : // modo uniforme ahora usa colores individuales por municipio
+                        colorById.get(municipioId) ?? uniformFill
 
-            const opacity = status ? 0.95 : isProvinceDimmed ? 0.6 : 0.85
-            const isCorrectTarget = correctBlinkId === municipioId
-            const showCelebration = celebration?.municipioId === municipioId
-            const featureClassName = clsx('map-canvas__feature', {
-              'map-canvas__feature--active': isActive,
-              'map-canvas__feature--dimmed': !status && isProvinceDimmed,
-              'map-canvas__feature--quiz': modo === 'reto',
-              'map-canvas__feature--correct-target': isCorrectTarget,
-              'map-canvas__feature--celebration': showCelebration
-            })
+                const opacity = status ? 0.95 : isProvinceDimmed ? 0.6 : 0.85
+                const isCorrectTarget = correctBlinkId === municipioId
+                const showCelebration = celebration?.municipioId === municipioId
+                const featureClassName = clsx('map-canvas__feature', {
+                  'map-canvas__feature--active': isActive,
+                  'map-canvas__feature--dimmed': !status && isProvinceDimmed,
+                  'map-canvas__feature--quiz': modo === 'reto',
+                  'map-canvas__feature--correct-target': isCorrectTarget,
+                  'map-canvas__feature--celebration': showCelebration
+                })
 
-            return (
+                return (
+                  <path
+                    key={municipioId}
+                    d={d}
+                    className={featureClassName}
+                    fill={fill}
+                    stroke="#312e81"
+                    strokeWidth={isActive ? 2.4 : 1.1}
+                    fillOpacity={opacity}
+                    onClick={() => onSelect?.(municipioId)}
+                  >
+                    <title>{nombreProp}</title>
+                  </path>
+                )
+              })
+            : null}
+          {celebrationPoint ? (
+            <g
+              key={celebrationPoint.key}
+              className="map-celebration"
+              transform={`translate(${celebrationPoint.x} ${celebrationPoint.y})`}
+            >
+              <circle className="map-celebration__glow" r="18" />
               <path
-                key={municipioId}
-                d={d}
-                className={featureClassName}
-                fill={fill}
-                stroke="#312e81"
-                strokeWidth={isActive ? 2.4 : 1.1}
-                fillOpacity={opacity}
-                onClick={() => onSelect?.(municipioId)}
-              >
-                <title>{nombreProp}</title>
-              </path>
-            )
-          })
-        ) : (
+                className="map-celebration__star"
+                d="M0 -12 L3.6 -4.2 L11.5 -3.8 L5.8 1.8 L7.8 9.6 L0 5.2 L-7.8 9.6 L-5.8 1.8 L-11.5 -3.8 L-3.6 -4.2 Z"
+              />
+            </g>
+          ) : null}
+        </g>
+        {!pathGenerator || projectedFeatures.length === 0 ? (
           <text x="50%" y="50%" textAnchor="middle" className="map-canvas__placeholder">
             Cargando mapa…
           </text>
-        )}
-        {celebrationPoint ? (
-          <g
-            key={celebrationPoint.key}
-            className="map-celebration"
-            transform={`translate(${celebrationPoint.x} ${celebrationPoint.y})`}
-          >
-            <circle className="map-celebration__glow" r="18" />
-            <path
-              className="map-celebration__star"
-              d="M0 -12 L3.6 -4.2 L11.5 -3.8 L5.8 1.8 L7.8 9.6 L0 5.2 L-7.8 9.6 L-5.8 1.8 L-11.5 -3.8 L-3.6 -4.2 Z"
-            />
-          </g>
         ) : null}
       </svg>
     </div>
