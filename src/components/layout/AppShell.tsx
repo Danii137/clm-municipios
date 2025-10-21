@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react'
+import clsx from 'clsx'
 
 type AppShellProps = {
   header: ReactNode
@@ -75,6 +76,23 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
           </button>
         )}
       </header>
+      {isMobile ? (
+        <button
+          type="button"
+          className={clsx('app-shell__drawer-handle', {
+            'app-shell__drawer-handle--open': sidebarOpen
+          })}
+          onClick={toggleSidebar}
+          aria-controls={sidebarId}
+          aria-expanded={sidebarOpen}
+          aria-label={sidebarOpen ? 'Ocultar panel de opciones' : 'Mostrar panel de opciones'}
+        >
+          <span className="app-shell__drawer-handle__icon" aria-hidden="true">
+            {sidebarOpen ? '◀' : '⋮'}
+          </span>
+          <span className="app-shell__drawer-handle__label">Opciones</span>
+        </button>
+      ) : null}
       <div className="app-shell__body">
         {isMobile ? (
           <div
