@@ -80,6 +80,10 @@ const MapCanvasComponent = ({
     if (!svgRef.current || !gRef.current) return
     const svg = select(svgRef.current)
     const g = select(gRef.current)
+    const rawSvg = svgRef.current
+
+    svg.style('touch-action', 'none')
+    svg.style('cursor', 'grab')
 
     const MIN_ZOOM = 0.5
     const MAX_ZOOM = 10
@@ -93,11 +97,22 @@ const MapCanvasComponent = ({
     svg.call(zb as any)
 
     // prevent page scroll when using wheel over the svg (allow wheel to zoom map)
-    const rawSvg = svgRef.current
     const wheelHandler = (e: WheelEvent) => {
       e.preventDefault()
     }
     rawSvg.addEventListener('wheel', wheelHandler, { passive: false })
+
+    const pointerDownHandler = () => {
+      svg.style('cursor', 'grabbing')
+    }
+    const pointerUpHandler = () => {
+      svg.style('cursor', 'grab')
+    }
+
+    rawSvg.addEventListener('pointerdown', pointerDownHandler)
+    rawSvg.addEventListener('pointerup', pointerUpHandler)
+    rawSvg.addEventListener('pointerleave', pointerUpHandler)
+    rawSvg.addEventListener('pointercancel', pointerUpHandler)
 
     const dblHandler = (e: MouseEvent) => {
       // zoom in around pointer on double click
@@ -116,6 +131,10 @@ const MapCanvasComponent = ({
     return () => {
       rawSvg.removeEventListener('wheel', wheelHandler)
       rawSvg.removeEventListener('dblclick', dblHandler)
+      rawSvg.removeEventListener('pointerdown', pointerDownHandler)
+      rawSvg.removeEventListener('pointerup', pointerUpHandler)
+      rawSvg.removeEventListener('pointerleave', pointerUpHandler)
+      rawSvg.removeEventListener('pointercancel', pointerUpHandler)
       svg.on('.zoom', null)
     }
   }, [features])
