@@ -2,7 +2,7 @@ import { memo, useMemo, useRef, useEffect } from 'react'
 import type { ReactElement } from 'react'
 import type { Feature, Geometry } from 'geojson'
 import { geoMercator, geoPath } from 'd3-geo'
-import { select } from 'd3-selection'
+import { select, pointer } from 'd3-selection'
 import { zoom, type ZoomBehavior } from 'd3-zoom'
 import clsx from 'clsx'
 import { assignColors } from '../../utils/coloring'
@@ -81,9 +81,12 @@ const MapCanvasComponent = ({
     const svg = select(svgRef.current)
     const g = select(gRef.current)
 
+    const MIN_ZOOM = 0.5
+    const MAX_ZOOM = 10
+
     const zb: ZoomBehavior<Element, unknown> = zoom()
-      .scaleExtent([0.5, 20])
-      .on('zoom', (event) => {
+      .scaleExtent([MIN_ZOOM, MAX_ZOOM])
+      .on('zoom', (event: any) => {
         g.attr('transform', event.transform.toString())
       })
 
@@ -92,13 +95,27 @@ const MapCanvasComponent = ({
     // prevent page scroll when using wheel over the svg (allow wheel to zoom map)
     const rawSvg = svgRef.current
     const wheelHandler = (e: WheelEvent) => {
-      // allow CTRL+wheel for browser zoom? we want wheel to zoom map, so always prevent default
       e.preventDefault()
     }
     rawSvg.addEventListener('wheel', wheelHandler, { passive: false })
 
+    const dblHandler = (e: MouseEvent) => {
+      // zoom in around pointer on double click
+      e.preventDefault()
+      try {
+        const pt = pointer(e as any, rawSvg)
+        // use scaleBy via the zoom behavior
+        ;(svg as any).call((zb as any).scaleBy, 1.5, pt)
+      } catch (err) {
+        // fallback: reset transform
+        g.attr('transform', 'translate(0,0) scale(1)')
+      }
+    }
+    rawSvg.addEventListener('dblclick', dblHandler)
+
     return () => {
       rawSvg.removeEventListener('wheel', wheelHandler)
+      rawSvg.removeEventListener('dblclick', dblHandler)
       svg.on('.zoom', null)
     }
   }, [features])
