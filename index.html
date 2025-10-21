@@ -10,15 +10,23 @@
   </head>
   <body>
     <script>
-      const hostname = window.location.hostname
-      const isLocal = hostname === 'localhost' || hostname === '127.0.0.1'
-      const alreadyInDocs = window.location.pathname.includes('/docs/')
-      if (!isLocal && !alreadyInDocs) {
-        const path = window.location.pathname.endsWith('/')
-          ? window.location.pathname
-          : `${window.location.pathname}/`
-        window.location.replace(`${path}docs/`)
-      }
+      ;(() => {
+        const devScript = document.querySelector(
+          'script[type="module"][src="/src/main.tsx"]',
+        )
+        if (!devScript) return
+
+        const hostname = window.location.hostname
+        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1'
+        const alreadyInDocs = window.location.pathname.includes('/docs/')
+
+        if (!isLocal && !alreadyInDocs) {
+          const path = window.location.pathname.endsWith('/')
+            ? window.location.pathname
+            : `${window.location.pathname}/`
+          window.location.replace(`${path}docs/`)
+        }
+      })()
     </script>
     <div id="root"></div>
   </body>
