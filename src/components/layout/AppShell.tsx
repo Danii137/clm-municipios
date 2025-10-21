@@ -63,17 +63,22 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
   return (
     <div className="app-shell">
       <header className="app-shell__header">
-        {header}
-        {isMobile && (
-          <button
-            type="button"
-            className={`app-shell__mobile-menu ${sidebarOpen ? 'app-shell__mobile-menu--active' : ''}`}
-            onClick={toggleSidebar}
-            aria-controls={sidebarId}
-            aria-expanded={sidebarOpen}
-          >
-            {sidebarOpen ? 'Ocultar opciones' : 'Ver opciones'}
-          </button>
+        {isMobile ? (
+          <div className="app-shell__header-mobile">
+            <button
+              type="button"
+              className={`app-shell__mobile-menu ${sidebarOpen ? 'app-shell__mobile-menu--active' : ''}`}
+              onClick={toggleSidebar}
+              aria-controls={sidebarId}
+              aria-expanded={sidebarOpen}
+              aria-label={sidebarOpen ? 'Ocultar panel de opciones' : 'Mostrar panel de opciones'}
+            >
+              <span aria-hidden="true">{sidebarOpen ? '◀' : '⋮'}</span>
+            </button>
+            <div className="app-shell__header-mobile-content">{header}</div>
+          </div>
+        ) : (
+          header
         )}
       </header>
       {isMobile ? (
