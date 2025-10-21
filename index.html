@@ -7,26 +7,30 @@
     <title>clm-municipios</title>
   </head>
   <body>
-    <script>
-      ;(() => {
-        const devScript = document.querySelector(
-          'script[type="module"][src="/src/main.tsx"]',
-        )
-        if (!devScript) return
+    <script type="module">
+      const hostname = window.location.hostname
+      const port = window.location.port
+      const alreadyInDocs = window.location.pathname.includes('/docs/')
+      const isLoopbackHost =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '::1' ||
+        hostname === '[::1]'
+      const isCodespaceHost =
+        hostname.endsWith('.githubpreview.dev') ||
+        hostname.endsWith('.app.github.dev') ||
+        hostname.endsWith('.app.github.dev.')
+      const isDevPort = port && port !== '80' && port !== '443'
 
-        const hostname = window.location.hostname
-        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1'
-        const alreadyInDocs = window.location.pathname.includes('/docs/')
-
-        if (!isLocal && !alreadyInDocs) {
-          const path = window.location.pathname.endsWith('/')
-            ? window.location.pathname
-            : `${window.location.pathname}/`
-          window.location.replace(`${path}docs/`)
-        }
-      })()
+      if (isLoopbackHost || isCodespaceHost || isDevPort || alreadyInDocs) {
+        await import('/src/main.tsx')
+      } else {
+        const path = window.location.pathname.endsWith('/')
+          ? window.location.pathname
+          : `${window.location.pathname}/`
+        window.location.replace(`${path}docs/`)
+      }
     </script>
     <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
