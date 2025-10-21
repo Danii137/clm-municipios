@@ -1,7 +1,9 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useRef, useEffect } from 'react'
 import type { ReactElement } from 'react'
 import type { Feature, Geometry } from 'geojson'
 import { geoMercator, geoPath } from 'd3-geo'
+import { select } from 'd3-selection'
+import { zoom, type ZoomBehavior } from 'd3-zoom'
 import clsx from 'clsx'
 import { assignColors } from '../../utils/coloring'
 import type { ColorMode, GameMode } from '../../store/gameStore'
@@ -67,6 +69,38 @@ const MapCanvasComponent = ({
     })
     const generator = geoPath(projection)
     return { pathGenerator: generator, projectedFeatures: features }
+  }, [features])
+
+  // refs for zoom/pan
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const gRef = useRef<SVGGElement | null>(null)
+
+  // set up d3 zoom behaviour only on the map svg
+  useEffect(() => {
+    if (!svgRef.current || !gRef.current) return
+    const svg = select(svgRef.current)
+    const g = select(gRef.current)
+
+    const zb: ZoomBehavior<Element, unknown> = zoom()
+      .scaleExtent([0.5, 20])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform.toString())
+      })
+
+    svg.call(zb as any)
+
+    // prevent page scroll when using wheel over the svg (allow wheel to zoom map)
+    const rawSvg = svgRef.current
+    const wheelHandler = (e: WheelEvent) => {
+      // allow CTRL+wheel for browser zoom? we want wheel to zoom map, so always prevent default
+      e.preventDefault()
+    }
+    rawSvg.addEventListener('wheel', wheelHandler, { passive: false })
+
+    return () => {
+      rawSvg.removeEventListener('wheel', wheelHandler)
+      svg.on('.zoom', null)
+    }
   }, [features])
 
   // asignar colores únicos a cada municipio usando la heurística
