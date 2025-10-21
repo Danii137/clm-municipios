@@ -106,17 +106,22 @@ const MapCanvasComponent = ({
             const status = statuses?.[municipioId]
             const isActive = highlightMunicipioId === municipioId
             // Si hay provincias seleccionadas, solo se encienden los municipios de esas provincias
-            const isDimmed = selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
+            const isProvinceDimmed = selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
 
-            const fill = status
-              ? statusFill[status]
-              : colorMode === 'por-provincia'
-                ? // en modo por-provincia mantenemos el comportamiento anterior
-                  provincePalette[provincia] ?? '#fbbf24'
-                : // modo uniforme ahora usa colores individuales por municipio
-                  colorById.get(municipioId) ?? uniformFill
+            // Color gris cuando la provincia está deseleccionada
+            const DIM_FILL = '#9ca3af'
 
-            const opacity = status ? 0.95 : isDimmed ? 0.25 : 0.85
+            const fill = isProvinceDimmed
+              ? DIM_FILL
+              : status
+                ? statusFill[status]
+                : colorMode === 'por-provincia'
+                  ? // en modo por-provincia mantenemos el comportamiento anterior
+                    provincePalette[provincia] ?? '#fbbf24'
+                  : // modo uniforme ahora usa colores individuales por municipio
+                    colorById.get(municipioId) ?? uniformFill
+
+            const opacity = status ? 0.95 : isProvinceDimmed ? 0.6 : 0.85
 
             return (
               <path
@@ -124,7 +129,7 @@ const MapCanvasComponent = ({
                 d={d}
                 className={clsx('map-canvas__feature', {
                   'map-canvas__feature--active': isActive,
-                  'map-canvas__feature--dimmed': !status && isDimmed,
+                  'map-canvas__feature--dimmed': !status && isProvinceDimmed,
                   'map-canvas__feature--quiz': modo === 'reto'
                 })}
                 fill={fill}
