@@ -66,6 +66,10 @@ const features: FeatureWithInfo[] = collection.features.map((feat) => {
     comunidad: 'castilla-la-mancha',
     poblacion: metadata?.poblacion,
     superficieKm2: metadata?.superficieKm2,
+    densidadHabKm2:
+      metadata?.poblacion && metadata?.superficieKm2
+        ? metadata.poblacion / metadata.superficieKm2
+        : undefined,
     altitud: metadata?.altitud,
     descripcion: capitalSummary,
     coordenadas: metadata?.coordenadas,

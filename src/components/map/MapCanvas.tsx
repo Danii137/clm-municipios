@@ -7,7 +7,7 @@ import { zoom, type ZoomBehavior } from 'd3-zoom'
 import clsx from 'clsx'
 import { assignColors } from '../../utils/coloring'
 import type { CelebrationState, ColorMode, GameMode } from '../../store/gameStore'
-import type { MunicipioInfo, ProvinciaId, RespuestaEstado } from '../../types/municipio'
+import type { MunicipioId, MunicipioInfo, ProvinciaId, RespuestaEstado } from '../../types/municipio'
 
 type MapCanvasProps = {
   features: Feature<Geometry, Record<string, unknown>>[]
@@ -20,6 +20,7 @@ type MapCanvasProps = {
   onSelect?: (municipioId: string) => void
   correctBlinkId?: string
   celebration?: CelebrationState
+  lockedMunicipios?: Set<MunicipioId>
 }
 
 const WIDTH = 760
@@ -33,15 +34,18 @@ const statusFill: Record<RespuestaEstado, string> = {
   pendiente: uniformFill
 }
 
-const MIN_ZOOM = 0.5
+const MIN_ZOOM = 0.85
 const MAX_ZOOM = 10
 const DOUBLE_CLICK_SCALE = 1.5
 const DIM_FILL = '#9ca3af'
+const LOCK_FILL = '#050505'
+const ZOOM_PADDING = 80
 
 const provinceColorCache = new Map<string, string>()
+const communityColorCache = new Map<string, string>()
 
 const colorForProvince = (provinciaId: string | undefined) => {
-  if (!provinciaId) return '#fbbf24'
+  if (!provinciaId) return '#6b7280'
   if (provinceColorCache.has(provinciaId)) {
     return provinceColorCache.get(provinciaId) as string
   }
@@ -53,9 +57,61 @@ const colorForProvince = (provinciaId: string | undefined) => {
   }
 
   const hue = Math.abs(hash) % 360
-  const color = `hsl(${hue}, 65%, 60%)`
+  const color = `hsl(${hue}, 60%, 62%)`
   provinceColorCache.set(provinciaId, color)
   return color
+}
+
+const communityPalette = [
+  '#0ea5e9',
+  '#f97316',
+  '#34d399',
+  '#a855f7',
+  '#ef4444',
+  '#22d3ee',
+  '#fbbf24',
+  '#c084fc',
+  '#4ade80',
+  '#fb7185',
+  '#38bdf8',
+  '#facc15'
+]
+
+const colorForCommunity = (communityId: string | undefined) => {
+  if (!communityId) return '#6b7280'
+  if (communityColorCache.has(communityId)) {
+    return communityColorCache.get(communityId) as string
+  }
+
+  let hash = 0
+  for (let i = 0; i < communityId.length; i += 1) {
+    hash = (hash << 5) - hash + communityId.charCodeAt(i)
+    hash |= 0
+  }
+
+  const color = communityPalette[Math.abs(hash) % communityPalette.length]
+  communityColorCache.set(communityId, color)
+  return color
+}
+
+const populationColor = (info?: MunicipioInfo) => {
+  const densidad = info?.densidadHabKm2
+  if (!densidad || densidad <= 0) return '#dbeafe'
+
+  const normalized = Math.min(1, Math.log10(densidad + 1) / 4.3)
+  const hue = 210 - normalized * 210
+  const saturation = 72 + normalized * 22
+  const lightness = 72 - normalized * 35
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+}
+
+const altitudeColor = (altitud?: number) => {
+  if (typeof altitud !== 'number' || Number.isNaN(altitud)) return '#39ff14'
+  const normalized = Math.max(0, Math.min(1, altitud / 2500))
+  const low = '#39ff14'
+  const high = '#9d00ff'
+  const percentage = Math.round(normalized * 100)
+  return `color-mix(in srgb, ${low} ${100 - percentage}%, ${high} ${percentage}%)`
 }
 
 const bringFeatureToFront = (element: SVGPathElement | null) => {
@@ -76,7 +132,8 @@ const MapCanvasComponent = ({
   statuses,
   onSelect,
   correctBlinkId,
-  celebration
+  celebration,
+  lockedMunicipios
 }: MapCanvasProps) => {
   // Mantener set de provincias seleccionadas
   const selectedProvinceSet = useMemo(
@@ -116,6 +173,10 @@ const MapCanvasComponent = ({
 
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
       .scaleExtent([MIN_ZOOM, MAX_ZOOM])
+      .translateExtent([
+        [-ZOOM_PADDING, -ZOOM_PADDING],
+        [WIDTH + ZOOM_PADDING, HEIGHT + ZOOM_PADDING]
+      ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform.toString())
       })
@@ -217,6 +278,7 @@ const MapCanvasComponent = ({
                 )
                 const info = infoById.get(municipioId)
                 const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
+                const comunidad = info?.comunidad
                 const nombreProp = info?.nombre ?? municipioId
                 const d = pathGenerator(feature as Feature)
                 if (!d) return null
@@ -227,15 +289,34 @@ const MapCanvasComponent = ({
                 const isProvinceDimmed =
                   selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
 
-            const fill = isProvinceDimmed
-              ? DIM_FILL
-              : status
-                ? statusFill[status]
-                : colorMode === 'por-provincia'
-                  ? colorForProvince(provincia)
-                  : colorById.get(municipioId) ?? uniformFill
+                const isLocked = lockedMunicipios?.has(municipioId)
 
-                const opacity = status ? 0.95 : isProvinceDimmed ? 0.6 : 0.85
+                const fill = (() => {
+                  if (isLocked) return LOCK_FILL
+                  if (isProvinceDimmed) return DIM_FILL
+                  if (status) return statusFill[status]
+                  switch (colorMode) {
+                    case 'por-provincia':
+                      return colorForProvince(provincia)
+                    case 'por-comunidad':
+                      return colorForCommunity(comunidad)
+                    case 'poblacion':
+                      return populationColor(info)
+                    case 'altitud':
+                      return altitudeColor(info?.altitud)
+                    case 'colorido':
+                    default:
+                      return colorById.get(municipioId) ?? uniformFill
+                  }
+                })()
+
+                const opacity = isLocked
+                  ? 0.9
+                  : status
+                    ? 0.95
+                    : isProvinceDimmed
+                      ? 0.6
+                      : 0.85
                 const isCorrectTarget = correctBlinkId === municipioId
                 const showCelebration = celebration?.municipioId === municipioId
                 const featureClassName = clsx('map-canvas__feature', {
@@ -243,8 +324,27 @@ const MapCanvasComponent = ({
                   'map-canvas__feature--dimmed': !status && isProvinceDimmed,
                   'map-canvas__feature--quiz': modo === 'reto',
                   'map-canvas__feature--correct-target': isCorrectTarget,
+                  'map-canvas__feature--locked': isLocked,
+                  'map-canvas__feature--locked-success': isLocked && status === 'correcta',
+                  'map-canvas__feature--locked-fail': isLocked && status === 'fallida',
                   'map-canvas__feature--celebration': showCelebration
                 })
+
+                const strokeColor = isLocked ? '#0f172a' : '#312e81'
+
+                const strokeWidth = isLocked
+                  ? status === 'correcta' || status === 'fallida'
+                    ? 2.4
+                    : 1.8
+                  : isActive
+                    ? 2.4
+                    : 1.1
+
+                const strokeDasharray = isLocked
+                  ? status === 'correcta' || status === 'fallida'
+                    ? '4 2'
+                    : '2 2'
+                  : undefined
 
                 return (
                   <path
@@ -252,8 +352,9 @@ const MapCanvasComponent = ({
                     d={d}
                     className={featureClassName}
                     fill={fill}
-                    stroke="#312e81"
-                    strokeWidth={isActive ? 2.4 : 1.1}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={strokeDasharray}
                     vectorEffect="non-scaling-stroke"
                     fillOpacity={opacity}
                 onClick={() => onSelect?.(municipioId)}

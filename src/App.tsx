@@ -24,6 +24,8 @@ const SUCCESS_SOUND_PEAK_GAIN = 0.28
 const SUCCESS_SOUND_START_FREQ = 523.25
 const SUCCESS_SOUND_END_FREQ = 783.99
 
+type ExpandableSection = 'communities' | 'provinces' | 'details'
+
 const getAudioContextConstructor = () => {
   if (typeof window === 'undefined') return undefined
   return (
@@ -35,12 +37,88 @@ const getAudioContextConstructor = () => {
 function App() {
   const [selected, setSelected] = useState<MunicipioInfo | undefined>()
   const [showSplash, setShowSplash] = useState(true)
+  const [expandedSections, setExpandedSections] = useState<Record<ExpandableSection, boolean>>({
+    communities: true,
+    provinces: true,
+    details: true
+  })
+  const [floatingLabel, setFloatingLabel] = useState<string | undefined>()
+  const audioContextRef = useRef<AudioContext | null>(null)
+
+  const ensureAudioContext = useCallback(async (): Promise<AudioContext | null> => {
+    const AudioContextCtor = getAudioContextConstructor()
+    if (!AudioContextCtor) return null
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextCtor()
+    }
+
+    const ctx = audioContextRef.current
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume()
+      } catch {
+        return null
+      }
+    }
+
+    return ctx
+  }, [])
+
+  const playSuccessSound = useCallback(async () => {
+    const ctx = await ensureAudioContext()
+    if (!ctx) return
+
+    const now = ctx.currentTime
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    oscillator.type = 'triangle'
+    oscillator.frequency.setValueAtTime(SUCCESS_SOUND_START_FREQ, now)
+    oscillator.frequency.exponentialRampToValueAtTime(SUCCESS_SOUND_END_FREQ, now + 0.35)
+
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(SUCCESS_SOUND_PEAK_GAIN, now + 0.04)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + SUCCESS_SOUND_DURATION)
+
+    oscillator.connect(gain).connect(ctx.destination)
+    oscillator.start(now)
+    oscillator.stop(now + SUCCESS_SOUND_DURATION)
+  }, [ensureAudioContext])
+
+  const playFailureSound = useCallback(async () => {
+    const ctx = await ensureAudioContext()
+    if (!ctx) return
+
+    const now = ctx.currentTime
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    oscillator.type = 'sawtooth'
+    oscillator.frequency.setValueAtTime(660, now)
+    oscillator.frequency.exponentialRampToValueAtTime(220, now + 0.25)
+
+    gain.gain.setValueAtTime(0.25, now)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5)
+
+    oscillator.connect(gain).connect(ctx.destination)
+    oscillator.start(now)
+    oscillator.stop(now + 0.5)
+  }, [ensureAudioContext])
+
+  const toggleSection = (section: ExpandableSection) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }))
+  }
 
   const {
     modo,
     setModo,
     colorMode,
     setColorMode,
+    dificultadReto,
+    setDificultadReto,
+    soundEnabled,
+    toggleSound,
     selectedCommunities,
     selectedProvinces,
     toggleCommunity: toggleCommunitySelection,
@@ -56,13 +134,16 @@ function App() {
     mapaEstados,
     correctBlinkId,
     celebration,
-    clearCelebration
+    clearCelebration,
+    lockedMunicipios
   } = useGameStore(
     useShallow((state) => ({
       modo: state.modo,
       setModo: state.setModo,
       colorMode: state.colorMode,
       setColorMode: state.setColorMode,
+      dificultadReto: state.dificultadReto,
+      setDificultadReto: state.setDificultadReto,
       selectedCommunities: state.selectedCommunities,
       selectedProvinces: state.selectedProvinces,
       toggleCommunity: state.toggleCommunity,
@@ -78,7 +159,10 @@ function App() {
       mapaEstados: state.mapaEstados,
       correctBlinkId: state.correctBlinkId,
       celebration: state.celebration,
-      clearCelebration: state.clearCelebration
+      clearCelebration: state.clearCelebration,
+      lockedMunicipios: state.lockedMunicipios,
+      soundEnabled: state.soundEnabled,
+      toggleSound: state.toggleSound
     }))
   )
 
@@ -127,8 +211,17 @@ function App() {
   )
 
   const handleSelectMunicipio = (municipioId: string) => {
+    if (modo === 'reto' && dificultadReto === 'facil' && lockedMunicipios?.has(municipioId)) {
+      return
+    }
     const info = spanishMunicipiosById.get(municipioId)
     if (info) setSelected(info)
+    if (info) {
+      setFloatingLabel(info.nombre)
+      setTimeout(() => {
+        setFloatingLabel((current) => (current === info.nombre ? undefined : current))
+      }, 2000)
+    }
 
     if (modo === 'reto') {
       marcarMunicipio(municipioId)
@@ -144,7 +237,16 @@ function App() {
 
   const quizFinalizado = modo === 'reto' && preguntas.length > 0 && completado
 
-  useCelebrationCue(celebration, clearCelebration)
+  useCelebrationCue(celebration, clearCelebration, soundEnabled, playSuccessSound)
+
+  const prevFallosRef = useRef(fallos)
+
+  useEffect(() => {
+    if (soundEnabled && fallos > prevFallosRef.current) {
+      void playFailureSound()
+    }
+    prevFallosRef.current = fallos
+  }, [fallos, soundEnabled, playFailureSound])
 
   useEffect(() => {
     if (!showSplash) return
@@ -207,6 +309,9 @@ function App() {
               >
                 <option value="colorido">Colorido</option>
                 <option value="por-provincia">Por provincia</option>
+                <option value="por-comunidad">Por comunidad</option>
+                <option value="poblacion">Pulso de población</option>
+                <option value="altitud">Relieve</option>
               </select>
             </label>
           </div>
@@ -216,115 +321,211 @@ function App() {
         <div className="sidebar">
           <section className="panel">
             <div className="panel__header">
-              <h2>Comunidades</h2>
-              <p>Activa zonas del mapa para practicar.</p>
-            </div>
-            <div className="chip-grid">
-              {comunidadSummaries.map((comunidad) => (
-                <button
-                  key={comunidad.id}
-                  type="button"
-                  className={clsx('chip', {
-                    'chip--active': selectedCommunities.includes(comunidad.id)
+              <div className="panel__header-text">
+                <h2>Comunidades</h2>
+                <p>Activa zonas del mapa para practicar.</p>
+              </div>
+              <button
+                type="button"
+                className="panel__toggle-button"
+                aria-expanded={expandedSections.communities}
+                onClick={() => toggleSection('communities')}
+              >
+                <span
+                  className={clsx('panel__chevron', {
+                    'panel__chevron--collapsed': !expandedSections.communities
                   })}
-                  onClick={() => toggleCommunitySelection(comunidad.id)}
+                  aria-hidden="true"
                 >
-                  {comunidad.nombre}
-                </button>
-              ))}
+                  ▾
+                </span>
+              </button>
             </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel__header">
-              <h2>Provincias</h2>
-              <p>Selecciona sobre qué provincias quieres practicar.</p>
-            </div>
-            <div className="chip-grid">
-              {(activeProvinces.length ? activeProvinces : provinciaSummaries).map((provincia) => (
-                <button
-                  key={provincia.id}
-                  type="button"
-                  className={clsx('chip', {
-                    'chip--active': selectedProvinces.includes(provincia.id)
-                  })}
-                  onClick={() => toggleProvinceSelection(provincia.id)}
-                >
-                  {provincia.nombre}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel__header">
-              <h2>{modo === 'reto' ? 'Reto' : 'Municipios'}</h2>
-              {modo === 'estudio' ? (
-                <span>{formatNumber(availableMunicipios.length)} municipios</span>
-              ) : null}
-            </div>
-
-            {modo === 'reto' ? (
+            {expandedSections.communities ? (
               <div className="panel__content">
-                <p className="panel__hint">
-                  Elige un modo de reto. Haz clic en el municipio correcto cuando se muestre el nombre.
-                </p>
-                <div className="panel__actions">
-                  <button
-                    type="button"
-                    onClick={() => startReto('reto-10')}
-                    className="ghost-button"
-                  >
-                    10 aleatorias
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startReto('reto-provincia')}
-                    className="ghost-button"
-                  >
-                    Provincias seleccionadas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startReto('reto-total')}
-                    className="ghost-button"
-                  >
-                    Completar mapa
-                  </button>
+                <div className="chip-grid">
+                  {comunidadSummaries.map((comunidad) => (
+                    <button
+                      key={comunidad.id}
+                      type="button"
+                      className={clsx('chip', {
+                        'chip--active': selectedCommunities.includes(comunidad.id)
+                      })}
+                      onClick={() => toggleCommunitySelection(comunidad.id)}
+                    >
+                      {comunidad.nombre}
+                    </button>
+                  ))}
                 </div>
+              </div>
+            ) : null}
+          </section>
 
-                {preguntas.length > 0 ? (
-                  <div className="panel__summary">
-                    <p>
-                      Preguntas: {preguntas.length} · Aciertos: {aciertos} · Fallos: {fallos}
-                    </p>
-                    {quizFinalizado ? (
-                      <button type="button" className="ghost-button" onClick={resetQuiz}>
-                        Reiniciar reto
-                      </button>
-                    ) : null}
-                  </div>
+          <section className="panel">
+            <div className="panel__header">
+              <div className="panel__header-text">
+                <h2>Provincias</h2>
+                <p>Selecciona sobre qué provincias quieres practicar.</p>
+              </div>
+              <button
+                type="button"
+                className="panel__toggle-button"
+                aria-expanded={expandedSections.provinces}
+                onClick={() => toggleSection('provinces')}
+              >
+                <span
+                  className={clsx('panel__chevron', {
+                    'panel__chevron--collapsed': !expandedSections.provinces
+                  })}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+            </div>
+            {expandedSections.provinces ? (
+              <div className="panel__content">
+                <div className="chip-grid">
+                  {(activeProvinces.length ? activeProvinces : provinciaSummaries).map((provincia) => (
+                    <button
+                      key={provincia.id}
+                      type="button"
+                      className={clsx('chip', {
+                        'chip--active': selectedProvinces.includes(provincia.id)
+                      })}
+                      onClick={() => toggleProvinceSelection(provincia.id)}
+                    >
+                      {provincia.nombre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="panel">
+            <div className="panel__header">
+              <div className="panel__header-text panel__header-text--compact">
+                <h2>{modo === 'reto' ? 'Reto' : 'Municipios'}</h2>
+                {modo === 'estudio' ? (
+                  <span>{formatNumber(availableMunicipios.length)} municipios</span>
                 ) : null}
               </div>
-            ) : (
-              <div className="panel__content panel__list">
-                <ul className="sidebar__list">
-                  {availableMunicipios.map((municipio) => (
-                    <li key={municipio.id}>
+              <button
+                type="button"
+                className="panel__toggle-button"
+                aria-expanded={expandedSections.details}
+                onClick={() => toggleSection('details')}
+              >
+                <span
+                  className={clsx('panel__chevron', {
+                    'panel__chevron--collapsed': !expandedSections.details
+                  })}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+            </div>
+
+            {expandedSections.details ? (
+              modo === 'reto' ? (
+                <div className="panel__content">
+                  <div className="difficulty-switch">
+                    <span className="difficulty-switch__label">Dificultad</span>
+                    <div className="difficulty-switch__buttons">
                       <button
                         type="button"
-                        className={clsx('sidebar__item', {
-                          'sidebar__item--active': selected?.id === municipio.id
+                        className={clsx('difficulty-switch__btn', {
+                          'difficulty-switch__btn--active': dificultadReto === 'facil'
                         })}
-                        onClick={() => handleSelectMunicipio(municipio.id)}
+                        onClick={() => setDificultadReto('facil')}
                       >
-                        {municipio.nombre}
+                        Fácil
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      <button
+                        type="button"
+                        className={clsx('difficulty-switch__btn', {
+                          'difficulty-switch__btn--active': dificultadReto === 'dificil'
+                        })}
+                        onClick={() => setDificultadReto('dificil')}
+                      >
+                        Difícil
+                      </button>
+                    </div>
+                  </div>
+                  <div className="sound-toggle">
+                    <span className="sound-toggle__label">Sonido</span>
+                    <button
+                      type="button"
+                      className={clsx('sound-toggle__btn', {
+                        'sound-toggle__btn--off': !soundEnabled
+                      })}
+                      onClick={toggleSound}
+                    >
+                      {soundEnabled ? 'Activado' : 'Silenciado'}
+                    </button>
+                  </div>
+                  <p className="panel__hint">
+                    Elige un modo de reto. Haz clic en el municipio correcto cuando se muestre el nombre.
+                  </p>
+                  <div className="panel__actions">
+                    <button
+                      type="button"
+                      onClick={() => startReto('reto-10')}
+                      className="ghost-button"
+                    >
+                      10 aleatorias
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startReto('reto-provincia')}
+                      className="ghost-button"
+                    >
+                      Provincias seleccionadas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startReto('reto-total')}
+                      className="ghost-button"
+                    >
+                      Completar mapa
+                    </button>
+                  </div>
+
+                  {preguntas.length > 0 ? (
+                    <div className="panel__summary">
+                      <p>
+                        Preguntas: {preguntas.length} · Aciertos: {aciertos} · Fallos: {fallos}
+                      </p>
+                      {quizFinalizado ? (
+                        <button type="button" className="ghost-button" onClick={resetQuiz}>
+                          Reiniciar reto
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="panel__content panel__list">
+                  <ul className="sidebar__list">
+                    {availableMunicipios.map((municipio) => (
+                      <li key={municipio.id}>
+                        <button
+                          type="button"
+                          className={clsx('sidebar__item', {
+                            'sidebar__item--active': selected?.id === municipio.id
+                          })}
+                          onClick={() => handleSelectMunicipio(municipio.id)}
+                        >
+                          {municipio.nombre}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            ) : null}
           </section>
         </div>
       }
@@ -379,9 +580,17 @@ function App() {
             statuses={mapaEstados}
             correctBlinkId={correctBlinkId}
             celebration={celebration}
+            lockedMunicipios={
+              modo === 'reto' && dificultadReto === 'facil' ? lockedMunicipios : undefined
+            }
             onSelect={handleSelectMunicipio}
           />
         </div>
+        {floatingLabel ? (
+          <div className="map-floating-label" key={floatingLabel}>
+            {floatingLabel}
+          </div>
+        ) : null}
         <MunicipioInfoPanel municipio={selected} />
       </div>
       </AppShell>
@@ -393,44 +602,10 @@ export default App
 
 function useCelebrationCue(
   celebration: CelebrationState | undefined,
-  onClear: () => void
+  onClear: () => void,
+  soundEnabled: boolean,
+  playSuccessSound: () => Promise<void>
 ) {
-  const audioContextRef = useRef<AudioContext | null>(null)
-
-  const playSuccessSound = useCallback(async () => {
-    const AudioContextCtor = getAudioContextConstructor()
-    if (!AudioContextCtor) return
-
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContextCtor()
-    }
-
-    const ctx = audioContextRef.current
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume()
-      } catch {
-        return
-      }
-    }
-
-    const now = ctx.currentTime
-    const oscillator = ctx.createOscillator()
-    const gain = ctx.createGain()
-
-    oscillator.type = 'triangle'
-    oscillator.frequency.setValueAtTime(SUCCESS_SOUND_START_FREQ, now)
-    oscillator.frequency.exponentialRampToValueAtTime(SUCCESS_SOUND_END_FREQ, now + 0.35)
-
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(SUCCESS_SOUND_PEAK_GAIN, now + 0.04)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + SUCCESS_SOUND_DURATION)
-
-    oscillator.connect(gain).connect(ctx.destination)
-    oscillator.start(now)
-    oscillator.stop(now + SUCCESS_SOUND_DURATION)
-  }, [])
-
   useEffect(() => {
     if (!celebration) return
 
@@ -438,10 +613,12 @@ function useCelebrationCue(
       onClear()
     }, CELEBRATION_CLEAR_DELAY)
 
-    void playSuccessSound()
+    if (soundEnabled) {
+      void playSuccessSound()
+    }
 
     return () => {
       clearTimeout(timeoutId)
     }
-  }, [celebration, onClear, playSuccessSound])
+  }, [celebration, onClear, soundEnabled, playSuccessSound])
 }

@@ -27,6 +27,7 @@ export type MunicipioInfo = {
   comunidad: ComunidadId
   poblacion?: number
   superficieKm2?: number
+  densidadHabKm2?: number
   altitud?: number
   gentilicio?: string
   descripcion?: string

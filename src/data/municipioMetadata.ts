@@ -112,6 +112,7 @@ for (const line of csvLines) {
     comunidad: 'castilla-la-mancha',
     poblacion,
     superficieKm2: superficie,
+    densidadHabKm2: poblacion && superficie ? poblacion / superficie : undefined,
     altitud,
     coordenadas,
     capital: capitalEntidad

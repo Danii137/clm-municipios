@@ -263,6 +263,10 @@ for (const feature of municipioFeatures.features) {
   ;(feature as any).id = featureId
 
   const superficieKm2 = typeof metadata.SUPERFICIE === 'number' ? metadata.SUPERFICIE / 100 : undefined
+  const densidadHabKm2 =
+    typeof metadata.POBLACION_MUNI === 'number' && typeof superficieKm2 === 'number' && superficieKm2 > 0
+      ? metadata.POBLACION_MUNI / superficieKm2
+      : undefined
 
   if (feature.properties?.CODNUT3 && !codNut3ToProvinceId.has(feature.properties.CODNUT3)) {
     codNut3ToProvinceId.set(feature.properties.CODNUT3, provinciaId)
@@ -301,7 +305,8 @@ for (const feature of municipioFeatures.features) {
                   }
                 : undefined
           }
-        : undefined
+        : undefined,
+    densidadHabKm2
   }
 
   featuresWithInfo.push({ feature, info })

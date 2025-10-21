@@ -18,7 +18,12 @@ import {
 
 export type GameMode = 'estudio' | 'reto'
 
-export type ColorMode = 'colorido' | 'por-provincia'
+export type ColorMode =
+  | 'colorido'
+  | 'por-provincia'
+  | 'por-comunidad'
+  | 'poblacion'
+  | 'altitud'
 
 type QuizQuestion = {
   id: string
@@ -34,6 +39,8 @@ export type CelebrationState = {
   municipioId: MunicipioId
   key: number
 }
+
+export type DifficultyLevel = 'facil' | 'dificil'
 
 const comunidadCastillaLaMancha = comunidadSummaries.find(
   (comunidad) => comunidad.nombre.toLowerCase() === 'castilla-la mancha'
@@ -52,6 +59,8 @@ type GameState = {
   modo: GameMode
   colorMode: ColorMode
   dificultad: NivelDificultad
+  dificultadReto: DifficultyLevel
+  soundEnabled: boolean
   selectedCommunities: ComunidadId[]
   selectedProvinces: ProvinciaId[]
   preguntas: QuizQuestion[]
@@ -62,11 +71,14 @@ type GameState = {
   mapaEstados: MapStatus
   correctBlinkId?: MunicipioId
   celebration?: CelebrationState
+  lockedMunicipios?: Set<MunicipioId>
   startQuiz: (params: { dificultad: NivelDificultad; municipios: MunicipioInfo[] }) => void
   marcarMunicipio: (municipioId: MunicipioId) => void
   resetQuiz: () => void
   setModo: (modo: GameMode) => void
   setColorMode: (mode: ColorMode) => void
+  setDificultadReto: (dificultad: DifficultyLevel) => void
+  toggleSound: () => void
   setSelectedCommunities: (communities: ComunidadId[]) => void
   toggleCommunity: (communityId: ComunidadId) => void
   toggleProvince: (provinciaId: ProvinciaId) => void
@@ -83,7 +95,7 @@ const shuffle = <T,>(array: T[]): T[] => {
   return result
 }
 
-const initialQuizState: Pick<
+const createInitialQuizState = (): Pick<
   GameState,
   | 'dificultad'
   | 'preguntas'
@@ -94,7 +106,8 @@ const initialQuizState: Pick<
   | 'mapaEstados'
   | 'correctBlinkId'
   | 'celebration'
-> = {
+  | 'lockedMunicipios'
+> => ({
   dificultad: 'estudio',
   preguntas: [],
   activeIndex: -1,
@@ -103,8 +116,9 @@ const initialQuizState: Pick<
   completado: false,
   mapaEstados: {},
   correctBlinkId: undefined,
-  celebration: undefined
-}
+  celebration: undefined,
+  lockedMunicipios: undefined
+})
 
 const ensureCommunitiesFromProvinces = (provinces: ProvinciaId[]): ComunidadId[] => {
   const communitiesFromProvinces = provinces
@@ -117,11 +131,14 @@ const ensureCommunitiesFromProvinces = (provinces: ProvinciaId[]): ComunidadId[]
 export const useGameStore = create<GameState>((set, get) => ({
   modo: 'estudio',
   colorMode: 'por-provincia',
+  dificultadReto: 'dificil',
+  soundEnabled: true,
   selectedCommunities: [DEFAULT_COMMUNITY_ID],
   selectedProvinces: defaultProvinceSelection.length ? defaultProvinceSelection : [],
-  ...initialQuizState,
+  ...createInitialQuizState(),
   startQuiz: ({ dificultad, municipios }) => {
     if (!municipios.length) return
+    const { dificultadReto } = get()
 
     const pool = shuffle(municipios)
     const limit =
@@ -149,11 +166,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       completado: preguntas.length === 0,
       mapaEstados: {},
       correctBlinkId: undefined,
-      celebration: undefined
+      celebration: undefined,
+      lockedMunicipios: dificultadReto === 'facil' ? new Set<MunicipioId>() : undefined
     })
   },
   marcarMunicipio: (municipioId) => {
-    const { preguntas, activeIndex, completado, mapaEstados, aciertos, fallos } = get()
+    const {
+      preguntas,
+      activeIndex,
+      completado,
+      mapaEstados,
+      aciertos,
+      fallos,
+      dificultadReto,
+      lockedMunicipios
+    } = get()
     if (preguntas.length === 0 || activeIndex < 0 || completado) return
     const pregunta = preguntas[activeIndex]
     if (pregunta.estado !== 'pendiente') return
@@ -195,6 +222,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     )
     const newCompleted = nextIndex === -1
 
+    let updatedLocked = lockedMunicipios ?? new Set<MunicipioId>()
+    if (dificultadReto === 'facil') {
+      updatedLocked = new Set<MunicipioId>(updatedLocked)
+      updatedLocked.add(pregunta.municipioId)
+      if (estado === 'fallida') {
+        updatedLocked.add(municipioId)
+      }
+    }
+
     set({
       preguntas: updatedPreguntas,
       activeIndex: newCompleted ? -1 : nextIndex,
@@ -203,22 +239,36 @@ export const useGameStore = create<GameState>((set, get) => ({
       completado: newCompleted,
       mapaEstados: updatedMapa,
       correctBlinkId,
-      celebration
+      celebration,
+      lockedMunicipios: dificultadReto === 'facil' ? updatedLocked : undefined
     })
   },
-  resetQuiz: () => set((state) => ({ ...state, ...initialQuizState })),
+  resetQuiz: () => set((state) => ({ ...state, ...createInitialQuizState() })),
   setModo: (modo) => {
     if (modo === 'estudio') {
       set((state) => ({
         ...state,
         modo,
-        ...initialQuizState
+        ...createInitialQuizState()
       }))
     } else {
       set({ modo })
     }
   },
   setColorMode: (mode) => set({ colorMode: mode }),
+  setDificultadReto: (dificultad) =>
+    set((state) => ({
+      dificultadReto: dificultad,
+      lockedMunicipios:
+        dificultad === 'facil'
+          ? new Set(
+              state.preguntas
+                .filter((pregunta) => pregunta.estado !== 'pendiente')
+                .map((pregunta) => pregunta.municipioId)
+            )
+          : undefined
+    })),
+  toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
   setSelectedCommunities: (communities) => {
     const validCommunities = communities.length ? communities : [DEFAULT_COMMUNITY_ID]
     const newProvinces = unique(

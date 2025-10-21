@@ -113,6 +113,12 @@ export const MunicipioInfoPanel = ({ municipio }: MunicipioInfoPanelProps) => {
                 </dd>
               </div>
             ) : null}
+            {typeof municipio.densidadHabKm2 === 'number' ? (
+              <div>
+                <dt>Densidad</dt>
+                <dd>{municipio.densidadHabKm2.toLocaleString('es-ES', { maximumFractionDigits: 0 })} hab/km²</dd>
+              </div>
+            ) : null}
             {typeof municipio.altitud === 'number' ? (
               <div>
                 <dt>Altitud</dt>

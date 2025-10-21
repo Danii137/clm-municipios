@@ -8,6 +8,7 @@ export const mockMunicipios: MunicipioInfo[] = [
     comunidad: 'castilla-la-mancha',
     poblacion: 85562,
     superficieKm2: 232,
+    densidadHabKm2: 85562 / 232,
     descripcion: 'Capital regional, Patrimonio de la Humanidad.'
   },
   {
@@ -17,6 +18,7 @@ export const mockMunicipios: MunicipioInfo[] = [
     comunidad: 'castilla-la-mancha',
     poblacion: 54890,
     superficieKm2: 911,
+    densidadHabKm2: 54890 / 911,
     descripcion: 'Famosa por sus casas colgadas y su casco histórico.'
   },
   {
@@ -26,6 +28,7 @@ export const mockMunicipios: MunicipioInfo[] = [
     comunidad: 'castilla-la-mancha',
     poblacion: 74268,
     superficieKm2: 285,
+    densidadHabKm2: 74268 / 285,
     descripcion: 'Ciudad central de La Mancha meridional, conocida por su universidad.'
   },
   {
@@ -35,6 +38,7 @@ export const mockMunicipios: MunicipioInfo[] = [
     comunidad: 'castilla-la-mancha',
     poblacion: 85871,
     superficieKm2: 235,
+    densidadHabKm2: 85871 / 235,
     descripcion: 'Puerta de entrada al valle del Henares.'
   },
   {
@@ -44,6 +48,7 @@ export const mockMunicipios: MunicipioInfo[] = [
     comunidad: 'castilla-la-mancha',
     poblacion: 173050,
     superficieKm2: 1125,
+    densidadHabKm2: 173050 / 1125,
     descripcion: 'Principal núcleo urbano de La Mancha oriental.'
   }
 ]
