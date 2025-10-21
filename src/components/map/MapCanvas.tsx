@@ -21,6 +21,7 @@ type MapCanvasProps = {
   correctBlinkId?: string
   celebration?: CelebrationState
   lockedMunicipios?: Set<MunicipioId>
+  showLabels?: boolean
 }
 
 const WIDTH = 760
@@ -139,7 +140,8 @@ const MapCanvasComponent = ({
   onSelect,
   correctBlinkId,
   celebration,
-  lockedMunicipios
+  lockedMunicipios,
+  showLabels = false
 }: MapCanvasProps) => {
   // Mantener set de provincias seleccionadas
   const selectedProvinceSet = useMemo(
@@ -278,6 +280,65 @@ const MapCanvasComponent = ({
     }
   }, [celebration, pathGenerator, projectedFeatures])
 
+  const labelEntries = useMemo(() => {
+    if (!showLabels || modo !== 'estudio' || !pathGenerator) return []
+
+    const entries: Array<{
+      municipioId: string
+      nombre: string
+      x: number
+      y: number
+      fontSize: number
+      isDimmed: boolean
+      isLocked: boolean
+    }> = []
+
+    for (const feature of projectedFeatures) {
+      const municipioId = String(feature.properties?.id ?? feature.id ?? 'sin-id')
+      const info = infoById.get(municipioId)
+      const nombre = info?.nombre
+      if (!nombre) continue
+
+      const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
+      const isDimmed =
+        selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
+      const isLocked = Boolean(lockedMunicipios?.has(municipioId))
+
+      try {
+        const centroid = pathGenerator.centroid(feature as GeoPermissibleObjects)
+        if (!centroid || centroid.length < 2) continue
+        const [cx, cy] = centroid
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue
+
+        const bounds = pathGenerator.bounds(feature as GeoPermissibleObjects)
+        if (!bounds || bounds.length < 2) continue
+        const width = bounds[1][0] - bounds[0][0]
+        const height = bounds[1][1] - bounds[0][1]
+        if (!Number.isFinite(width) || !Number.isFinite(height)) continue
+
+        const minDimension = Math.min(width, height)
+        if (minDimension < 9) continue
+
+        const area = width * height
+        const fontSize = Math.max(9, Math.min(18, Math.sqrt(Math.abs(area)) * 0.55))
+
+        entries.push({
+          municipioId,
+          nombre,
+          x: cx,
+          y: cy,
+          fontSize,
+          isDimmed,
+          isLocked
+        })
+      } catch {
+        // ignoramos geometrías que no puedan calcular centroid/bounds
+      }
+    }
+
+    return entries
+  }, [showLabels, modo, pathGenerator, projectedFeatures, infoById, selectedProvinceSet, lockedMunicipios])
+
   return (
     <div className="map-container map-canvas">
       <svg
@@ -379,14 +440,32 @@ const MapCanvasComponent = ({
                     strokeDasharray={strokeDasharray}
                     vectorEffect="non-scaling-stroke"
                     fillOpacity={opacity}
-                onClick={() => onSelect?.(municipioId)}
-                onMouseEnter={(event) => bringFeatureToFront(event.currentTarget)}
-              >
-                <title>{nombreProp}</title>
-              </path>
+                    onClick={() => onSelect?.(municipioId)}
+                    onMouseEnter={(event) => bringFeatureToFront(event.currentTarget)}
+                  >
+                    <title>{nombreProp}</title>
+                  </path>
             )
           })
             : null}
+          {labelEntries.length > 0 ? (
+            <g className="map-canvas__labels">
+              {labelEntries.map((label) => (
+                <text
+                  key={`label-${label.municipioId}`}
+                  x={label.x}
+                  y={label.y}
+                  className={clsx('map-canvas__label', {
+                    'map-canvas__label--dimmed': label.isDimmed,
+                    'map-canvas__label--locked': label.isLocked
+                  })}
+                  style={{ fontSize: `${label.fontSize}px` }}
+                >
+                  {label.nombre}
+                </text>
+              ))}
+            </g>
+          ) : null}
           {celebrationPoint ? (
             <g
               key={celebrationPoint.key}

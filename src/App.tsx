@@ -47,6 +47,8 @@ function App() {
   })
   const [floatingLabel, setFloatingLabel] = useState<string | undefined>()
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
+  const [showMunicipioLabels, setShowMunicipioLabels] = useState(false)
+  const [showRetoModal, setShowRetoModal] = useState(false)
   const timerRef = useRef<number | null>(null)
   const prevQuestionRef = useRef<string | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -182,6 +184,9 @@ function App() {
   const totalPreguntas = preguntas.length
   const respondidas = aciertos + fallos
 
+  const prevModoRef = useRef(modo)
+  const prevTotalPreguntasRef = useRef(totalPreguntas)
+
   const selectedCommunitiesSet = useMemo(
     () => new Set<ComunidadId>(selectedCommunities),
     [selectedCommunities]
@@ -227,6 +232,25 @@ function App() {
       ? Math.max(0, Math.min((timeLeft / TIME_LIMIT) * 100, 100))
       : 0
 
+  useEffect(() => {
+    const prevModo = prevModoRef.current
+    const prevTotal = prevTotalPreguntasRef.current
+
+    if (
+      modo === 'reto' &&
+      (prevModo !== 'reto' || (prevTotal > 0 && totalPreguntas === 0))
+    ) {
+      setShowRetoModal(true)
+    }
+
+    if (prevModo === 'reto' && modo !== 'reto') {
+      setShowRetoModal(false)
+    }
+
+    prevModoRef.current = modo
+    prevTotalPreguntasRef.current = totalPreguntas
+  }, [modo, totalPreguntas])
+
   const handleSelectMunicipio = (municipioId: string) => {
     if (modo === 'reto' && paused) return
     if (modo === 'reto' && dificultadReto === 'facil' && lockedMunicipios?.has(municipioId)) {
@@ -251,6 +275,7 @@ function App() {
     if (pool.length === 0) return
     setSelected(undefined)
     setPaused(false)
+    setShowRetoModal(false)
     startQuiz({ dificultad: tipo, municipios: pool })
   }
 
@@ -344,6 +369,67 @@ useEffect(() => {
           </div>
         </div>
       ) : null}
+      {showRetoModal ? (
+        <div className="reto-modal-overlay" onClick={() => setShowRetoModal(false)}>
+          <div
+            className="reto-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reto-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="reto-modal-title" className="reto-modal__title">
+              Elige tu reto
+            </h2>
+            <p className="reto-modal__subtitle">
+              Selecciona la dificultad y el conjunto de municipios con los que quieres practicar.
+            </p>
+            <div className="difficulty-switch">
+              <span className="difficulty-switch__label">Dificultad</span>
+              <div className="difficulty-switch__buttons">
+                <button
+                  type="button"
+                  className={clsx('difficulty-switch__btn', {
+                    'difficulty-switch__btn--active': dificultadReto === 'facil'
+                  })}
+                  onClick={() => setDificultadReto('facil')}
+                >
+                  Fácil
+                </button>
+                <button
+                  type="button"
+                  className={clsx('difficulty-switch__btn', {
+                    'difficulty-switch__btn--active': dificultadReto === 'dificil'
+                  })}
+                  onClick={() => setDificultadReto('dificil')}
+                >
+                  Difícil
+                </button>
+              </div>
+            </div>
+            <div className="reto-modal__actions">
+              <button type="button" className="ghost-button" onClick={() => startReto('reto-10')}>
+                10 aleatorias
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => startReto('reto-provincia')}
+              >
+                Provincias seleccionadas
+              </button>
+              <button type="button" className="ghost-button" onClick={() => startReto('reto-total')}>
+                Completar mapa
+              </button>
+            </div>
+            <div className="reto-modal__footer">
+              <button type="button" className="ghost-button" onClick={() => setShowRetoModal(false)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <AppShell
       header={
         <div className="header">
@@ -390,6 +476,17 @@ useEffect(() => {
                 <option value="altitud">Relieve</option>
               </select>
             </label>
+            {modo === 'estudio' ? (
+              <button
+                type="button"
+                className={clsx('ghost-button', 'header__labels-toggle', {
+                  'ghost-button--active': showMunicipioLabels
+                })}
+                onClick={() => setShowMunicipioLabels((value) => !value)}
+              >
+                {showMunicipioLabels ? 'Ocultar nombres' : 'Mostrar nombres'}
+              </button>
+            ) : null}
             <button
               type="button"
               className="theme-toggle-btn"
@@ -706,6 +803,7 @@ useEffect(() => {
             lockedMunicipios={
               modo === 'reto' && dificultadReto === 'facil' ? lockedMunicipios : undefined
             }
+            showLabels={modo === 'estudio' && showMunicipioLabels}
             onSelect={handleSelectMunicipio}
           />
           {floatingLabel ? (

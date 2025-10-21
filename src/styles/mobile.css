@@ -31,6 +31,17 @@
     gap: clamp(0.9rem, 3vw, 1.2rem);
   }
 
+  .header__controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(0.6rem, 3vw, 0.9rem);
+  }
+
+  .header__labels-toggle {
+    justify-self: stretch;
+  }
+
   .app-shell__body {
     display: flex;
     flex-direction: column;
@@ -199,6 +210,15 @@
   .app-shell__drawer-handle__icon {
     font-size: 1.2rem;
     line-height: 1;
+  }
+
+  .reto-modal {
+    width: min(94vw, 420px);
+    padding: clamp(1.25rem, 6vw, 2rem);
+  }
+
+  .reto-modal__actions {
+    grid-template-columns: 1fr;
   }
 
   .app-shell__drawer-handle__label {

@@ -10,7 +10,6 @@ type AppShellProps = {
 export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
   const [isMobile, setIsMobile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -58,7 +57,6 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
   }, [sidebarOpen])
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev)
-  const toggleCollapsed = () => setSidebarCollapsed((prev) => !prev)
   const closeSidebar = () => setSidebarOpen(false)
   const sidebarId = 'app-shell-sidebar'
 
@@ -142,7 +140,7 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
               aria-expanded={sidebarOpen}
               aria-label={sidebarOpen ? 'Ocultar panel de opciones' : 'Mostrar panel de opciones'}
             >
-              <span aria-hidden="true">{sidebarOpen ? '◀' : '⋮'}</span>
+              <span aria-hidden="true">{sidebarOpen ? '◀' : '▶'}</span>
             </button>
             <div className="app-shell__header-mobile-content">{header}</div>
           </div>
@@ -150,19 +148,21 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
           header
         )}
       </header>
-      {/* Botón fijo arriba a la izquierda para ocultar/mostrar opciones (móvil y escritorio) */}
-      <button
-        type="button"
-        className={clsx('app-shell__fixed-toggle', {
-          'app-shell__fixed-toggle--active': isMobile ? sidebarOpen : !sidebarCollapsed
-        })}
-        onClick={() => (isMobile ? toggleSidebar() : toggleCollapsed())}
-        aria-controls={sidebarId}
-        aria-expanded={isMobile ? sidebarOpen : !sidebarCollapsed}
-        aria-label={(isMobile ? sidebarOpen : !sidebarCollapsed) ? 'Ocultar opciones' : 'Mostrar opciones'}
-      >
-        {(isMobile ? sidebarOpen : !sidebarCollapsed) ? '◀' : '▶'}
-      </button>
+      {/* Botón fijo arriba a la izquierda solo para móvil */}
+      {isMobile ? (
+        <button
+          type="button"
+          className={clsx('app-shell__fixed-toggle', {
+            'app-shell__fixed-toggle--active': sidebarOpen
+          })}
+          onClick={toggleSidebar}
+          aria-controls={sidebarId}
+          aria-expanded={sidebarOpen}
+          aria-label={sidebarOpen ? 'Ocultar panel de opciones' : 'Mostrar panel de opciones'}
+        >
+          {sidebarOpen ? '◀' : '▶'}
+        </button>
+      ) : null}
       {isMobile ? (
         <button
           type="button"
@@ -175,12 +175,12 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
           aria-label={sidebarOpen ? 'Ocultar panel de opciones' : 'Mostrar panel de opciones'}
         >
           <span className="app-shell__drawer-handle__icon" aria-hidden="true">
-            {sidebarOpen ? '◀' : '⋮'}
+            {sidebarOpen ? '◀' : '▶'}
           </span>
           <span className="app-shell__drawer-handle__label">Opciones</span>
         </button>
       ) : null}
-      <div className={clsx('app-shell__body', { 'sidebar-collapsed': !isMobile && sidebarCollapsed })}>
+      <div className="app-shell__body">
         {isMobile ? (
           <div
             className={`app-shell__scrim ${sidebarOpen ? 'app-shell__scrim--visible' : ''}`}
@@ -190,7 +190,7 @@ export const AppShell = ({ header, sidebar, children }: AppShellProps) => {
         ) : null}
         <aside
           id={sidebarId}
-          className={`app-shell__sidebar ${isMobile ? 'mobile' : ''} ${sidebarOpen ? 'open' : ''} ${!isMobile && sidebarCollapsed ? 'collapsed' : ''}`}
+          className={`app-shell__sidebar ${isMobile ? 'mobile' : ''} ${sidebarOpen ? 'open' : ''}`}
         >
           {sidebar}
         </aside>
