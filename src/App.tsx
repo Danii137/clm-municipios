@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import clsx from 'clsx'
 import { AppShell } from './components/layout/AppShell'
 import { MapCanvas } from './components/map/MapCanvas'
@@ -10,9 +10,9 @@ import {
   spanishMunicipiosById,
   spanishMunicipiosInfo
 } from './data/spainDivisions'
-import { useGameStore, type ColorMode, type CelebrationState } from './store/gameStore'
+import { useGameStore, type ColorMode, type CelebrationState, type GameMode } from './store/gameStore'
 import { useShallow } from 'zustand/react/shallow'
-import type { ComunidadId, MunicipioInfo } from './types/municipio'
+import type { ComunidadId, MunicipioId, MunicipioInfo } from './types/municipio'
 import './App.css'
 import introLogo from './data/daniel-alonso-gomez.png'
 
@@ -49,6 +49,9 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
   const [showMunicipioLabels, setShowMunicipioLabels] = useState(false)
   const [showRetoModal, setShowRetoModal] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false)
+  const [focusedQuizMunicipios, setFocusedQuizMunicipios] = useState<Set<MunicipioId> | null>(null)
   const timerRef = useRef<number | null>(null)
   const prevQuestionRef = useRef<string | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -224,6 +227,42 @@ function App() {
     })
   }, [availableMunicipioIds])
 
+  const computeMostPopulatedMunicipios = useCallback(
+    (count: number): MunicipioInfo[] => {
+      if (availableMunicipios.length === 0) return []
+
+      const withPopulation = availableMunicipios.filter((municipio) =>
+        typeof municipio.poblacion === 'number' && Number.isFinite(municipio.poblacion)
+      )
+
+      const sortedByPopulation = withPopulation.sort((a, b) => {
+        const popA = a.poblacion ?? 0
+        const popB = b.poblacion ?? 0
+        if (popA === popB) {
+          return a.nombre.localeCompare(b.nombre, 'es')
+        }
+        return popB - popA
+      })
+
+      const selected: MunicipioInfo[] = sortedByPopulation.slice(0, count)
+      if (selected.length >= count) {
+        return selected
+      }
+
+      const usedIds = new Set(selected.map((municipio) => municipio.id))
+      for (const municipio of availableMunicipios) {
+        if (selected.length >= count) break
+        if (!usedIds.has(municipio.id)) {
+          selected.push(municipio)
+          usedIds.add(municipio.id)
+        }
+      }
+
+      return selected
+    },
+    [availableMunicipios]
+  )
+
   // Número de preguntas restantes podría calcularse si se necesita en el futuro
   const progresoResueltas = totalPreguntas > 0 ? Math.round((respondidas / totalPreguntas) * 100) : 0
   const progresoAciertos = totalPreguntas > 0 ? Math.round((aciertos / totalPreguntas) * 100) : 0
@@ -276,7 +315,33 @@ function App() {
     setSelected(undefined)
     setPaused(false)
     setShowRetoModal(false)
+    setFocusedQuizMunicipios(null)
     startQuiz({ dificultad: tipo, municipios: pool })
+  }
+
+  const startPopulatedReto = (count: 10 | 50 | 100) => {
+    const populous = computeMostPopulatedMunicipios(count)
+    if (populous.length === 0) return
+    setSelected(undefined)
+    setPaused(false)
+    setShowRetoModal(false)
+    setFocusedQuizMunicipios(new Set(populous.map((municipio) => municipio.id)))
+    startQuiz({ dificultad: 'reto-provincia', municipios: populous })
+  }
+
+  const handleResetQuiz = useCallback(() => {
+    resetQuiz()
+    setFocusedQuizMunicipios(null)
+  }, [resetQuiz])
+
+  const handleModoChange = (nextMode: GameMode) => {
+    if (nextMode === modo) return
+    if (nextMode === 'estudio') {
+      handleResetQuiz()
+    } else {
+      setFocusedQuizMunicipios(null)
+    }
+    setModo(nextMode)
   }
 
   const quizFinalizado = modo === 'reto' && preguntas.length > 0 && completado
@@ -297,6 +362,36 @@ useEffect(() => {
   body.classList.remove('theme-dark', 'theme-light')
   body.classList.add(theme === 'oscuro' ? 'theme-dark' : 'theme-light')
 }, [theme])
+
+useEffect(() => {
+  if (typeof window === 'undefined') return
+  const updateIsMobile = () => {
+    setIsMobile(window.innerWidth < 768)
+  }
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
+  return () => {
+    window.removeEventListener('resize', updateIsMobile)
+  }
+}, [])
+
+useEffect(() => {
+  if (!isMobile && mobileControlsOpen) {
+    setMobileControlsOpen(false)
+  }
+}, [isMobile, mobileControlsOpen])
+
+useEffect(() => {
+  if (mobileControlsOpen) {
+    setMobileControlsOpen(false)
+  }
+}, [modo, mobileControlsOpen])
+
+useEffect(() => {
+  if (preguntas.length === 0 && focusedQuizMunicipios) {
+    setFocusedQuizMunicipios(null)
+  }
+}, [preguntas.length, focusedQuizMunicipios])
 
 
 useEffect(() => {
@@ -422,6 +517,32 @@ useEffect(() => {
                 Completar mapa
               </button>
             </div>
+            <div className="reto-modal__group">
+              <span className="reto-modal__group-title">Más poblados de tus provincias</span>
+              <div className="reto-modal__group-buttons">
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--dense"
+                  onClick={() => startPopulatedReto(10)}
+                >
+                  10 más poblados
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--dense"
+                  onClick={() => startPopulatedReto(50)}
+                >
+                  50 más poblados
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--dense"
+                  onClick={() => startPopulatedReto(100)}
+                >
+                  100 más poblados
+                </button>
+              </div>
+            </div>
             <div className="reto-modal__footer">
               <button type="button" className="ghost-button" onClick={() => setShowRetoModal(false)}>
                 Cerrar
@@ -437,65 +558,65 @@ useEffect(() => {
             <h1>España Municipios Challenge</h1>
             <p>Activa las comunidades y provincias que quieras estudiar o utilizar en el reto.</p>
           </div>
-          <div className="header__controls">
-            <div className="mode-switch">
-              <button
-                type="button"
-                className={clsx('mode-switch__btn', {
-                  'mode-switch__btn--active': modo === 'estudio'
-                })}
-                onClick={() => {
-                  resetQuiz()
-                  setModo('estudio')
-                }}
-              >
-                Estudiar
-              </button>
-              <button
-                type="button"
-                className={clsx('mode-switch__btn', {
-                  'mode-switch__btn--active': modo === 'reto'
-                })}
-                onClick={() => setModo('reto')}
-              >
-                Reto
-              </button>
-            </div>
-            <label className="select-control">
-              <span>Paleta</span>
-              <select
-                value={colorMode}
-                onChange={(event) =>
-                  setColorMode(event.target.value as ColorMode)
-                }
-              >
-                <option value="colorido">Colorido</option>
-                <option value="por-provincia">Por provincia</option>
+          {!isMobile ? (
+            <div className="header__controls">
+              <div className="mode-switch">
+                <button
+                  type="button"
+                  className={clsx('mode-switch__btn', {
+                    'mode-switch__btn--active': modo === 'estudio'
+                  })}
+                  onClick={() => handleModoChange('estudio')}
+                >
+                  Estudiar
+                </button>
+                <button
+                  type="button"
+                  className={clsx('mode-switch__btn', {
+                    'mode-switch__btn--active': modo === 'reto'
+                  })}
+                  onClick={() => handleModoChange('reto')}
+                >
+                  Reto
+                </button>
+              </div>
+              <label className="select-control">
+                <span>Paleta</span>
+                <select
+                  value={colorMode}
+                  onChange={(event) =>
+                    setColorMode(event.target.value as ColorMode)
+                  }
+                >
+                  <option value="colorido">Colorido</option>
+                  <option value="por-provincia">Por provincia</option>
                 <option value="por-comunidad">Por comunidad</option>
                 <option value="poblacion">Pulso de población</option>
                 <option value="altitud">Relieve</option>
+                <option value="carreteras">Mapa carreteras</option>
               </select>
             </label>
-            {modo === 'estudio' ? (
+              {modo === 'estudio' ? (
+                <button
+                  type="button"
+                  className={clsx('ghost-button', 'header__labels-toggle', {
+                    'ghost-button--active': showMunicipioLabels
+                  })}
+                  onClick={() => setShowMunicipioLabels((value) => !value)}
+                >
+                  {showMunicipioLabels ? 'Ocultar nombres' : 'Mostrar nombres'}
+                </button>
+              ) : null}
               <button
                 type="button"
-                className={clsx('ghost-button', 'header__labels-toggle', {
-                  'ghost-button--active': showMunicipioLabels
-                })}
-                onClick={() => setShowMunicipioLabels((value) => !value)}
+                className="theme-toggle-btn"
+                onClick={toggleTheme}
+                aria-label={theme === 'oscuro' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
               >
-                {showMunicipioLabels ? 'Ocultar nombres' : 'Mostrar nombres'}
+                {theme === 'oscuro' ? '☀️' : '🌙'}
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="theme-toggle-btn"
-              onClick={toggleTheme}
-              aria-label={theme === 'oscuro' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-            >
-              {theme === 'oscuro' ? '☀️' : '🌙'}
-            </button>
-          </div>
+            </div>
+          ) : null}
         </div>
       }
       sidebar={
@@ -661,6 +782,32 @@ useEffect(() => {
                       Completar mapa
                     </button>
                   </div>
+                  <div className="panel__actions-group">
+                    <span className="panel__actions-group-title">Más poblados de tus provincias</span>
+                    <div className="panel__actions-group-buttons">
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--dense"
+                        onClick={() => startPopulatedReto(10)}
+                      >
+                        10 más poblados
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--dense"
+                        onClick={() => startPopulatedReto(50)}
+                      >
+                        50 más poblados
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--dense"
+                        onClick={() => startPopulatedReto(100)}
+                      >
+                        100 más poblados
+                      </button>
+                    </div>
+                  </div>
 
                   {preguntas.length > 0 ? (
                     <div className="panel__summary">
@@ -668,7 +815,7 @@ useEffect(() => {
                         Preguntas: {preguntas.length} · Aciertos: {aciertos} · Fallos: {fallos}
                       </p>
                       {quizFinalizado ? (
-                        <button type="button" className="ghost-button" onClick={resetQuiz}>
+                        <button type="button" className="ghost-button" onClick={handleResetQuiz}>
                           Reiniciar reto
                         </button>
                       ) : null}
@@ -700,7 +847,12 @@ useEffect(() => {
       }
     >
       <div className="map-section">
-        <div className="map-card">
+        <div
+          className={clsx('map-card', {
+            'map-card--mobile-full': isMobile,
+            'map-card--mobile-game': isMobile && modo === 'reto'
+          })}
+        >
           {modo === 'reto' ? (
             <div className="quiz-hud">
               {preguntas.length === 0 ? (
@@ -763,7 +915,7 @@ useEffect(() => {
                         type="button"
                         className="quiz-hud__icon-btn"
                         aria-label="Reiniciar reto"
-                        onClick={resetQuiz}
+                        onClick={handleResetQuiz}
                       >
                         ⟲
                       </button>
@@ -796,6 +948,7 @@ useEffect(() => {
             colorMode={colorMode}
             modo={modo}
             infoById={spanishMunicipiosById}
+            selectedCommunities={selectedCommunities}
             selectedProvinces={selectedProvinces}
             statuses={mapaEstados}
             correctBlinkId={correctBlinkId}
@@ -804,8 +957,25 @@ useEffect(() => {
               modo === 'reto' && dificultadReto === 'facil' ? lockedMunicipios : undefined
             }
             showLabels={modo === 'estudio' && showMunicipioLabels}
+            theme={theme}
+            focusedMunicipios={focusedQuizMunicipios}
             onSelect={handleSelectMunicipio}
           />
+          {isMobile ? (
+            <MobileFloatingControls
+              modo={modo}
+              onChangeModo={handleModoChange}
+              colorMode={colorMode}
+              onChangeColorMode={(mode) => setColorMode(mode)}
+              showMunicipioLabels={showMunicipioLabels}
+              onToggleLabels={() => setShowMunicipioLabels((value) => !value)}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              open={mobileControlsOpen}
+              onToggleOpen={() => setMobileControlsOpen((prev) => !prev)}
+              onOpenRetoModal={() => setShowRetoModal(true)}
+            />
+          ) : null}
           {floatingLabel ? (
             <div className="map-floating-label" key={floatingLabel}>
               {floatingLabel}
@@ -830,6 +1000,154 @@ useEffect(() => {
 }
 
 export default App
+
+type MobileControlsProps = {
+  modo: GameMode
+  onChangeModo: (mode: GameMode) => void
+  colorMode: ColorMode
+  onChangeColorMode: (mode: ColorMode) => void
+  showMunicipioLabels: boolean
+  onToggleLabels: () => void
+  theme: 'oscuro' | 'claro'
+  onToggleTheme: () => void
+  open: boolean
+  onToggleOpen: () => void
+  onOpenRetoModal: () => void
+}
+
+const MobileFloatingControls = ({
+  modo,
+  onChangeModo,
+  colorMode,
+  onChangeColorMode,
+  showMunicipioLabels,
+  onToggleLabels,
+  theme,
+  onToggleTheme,
+  open,
+  onToggleOpen,
+  onOpenRetoModal
+}: MobileControlsProps) => {
+  const closeIfOpen = () => {
+    if (open) onToggleOpen()
+  }
+
+  const handlePaletteChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    onChangeColorMode(event.target.value as ColorMode)
+    closeIfOpen()
+  }
+
+  return (
+    <div className={clsx('mobile-controls', { 'mobile-controls--open': open })}>
+      <div className="mobile-controls__panel">
+        <div className="mobile-controls__section">
+          <span className="mobile-controls__section-label">Modo</span>
+          <div className="mode-switch mode-switch--mobile">
+            <button
+              type="button"
+              className={clsx('mode-switch__btn', {
+                'mode-switch__btn--active': modo === 'estudio'
+              })}
+              onClick={() => {
+                onChangeModo('estudio')
+                closeIfOpen()
+              }}
+            >
+              Estudiar
+            </button>
+            <button
+              type="button"
+              className={clsx('mode-switch__btn', {
+                'mode-switch__btn--active': modo === 'reto'
+              })}
+              onClick={() => {
+                onChangeModo('reto')
+                closeIfOpen()
+              }}
+            >
+              Reto
+            </button>
+          </div>
+        </div>
+        <label className="select-control select-control--mobile">
+          <span>Paleta</span>
+          <select value={colorMode} onChange={handlePaletteChange}>
+            <option value="colorido">Colorido</option>
+            <option value="por-provincia">Por provincia</option>
+            <option value="por-comunidad">Por comunidad</option>
+            <option value="poblacion">Pulso de población</option>
+            <option value="altitud">Relieve</option>
+            <option value="carreteras">Mapa carreteras</option>
+          </select>
+        </label>
+        {modo === 'estudio' ? (
+          <button
+            type="button"
+            className="ghost-button ghost-button--dense"
+            onClick={() => {
+              onToggleLabels()
+              closeIfOpen()
+            }}
+          >
+            {showMunicipioLabels ? 'Ocultar nombres' : 'Mostrar nombres'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="ghost-button ghost-button--dense"
+            onClick={() => {
+              onOpenRetoModal()
+              closeIfOpen()
+            }}
+          >
+            Elegir reto
+          </button>
+        )}
+        <button
+          type="button"
+          className="ghost-button ghost-button--dense"
+          onClick={() => {
+            onToggleTheme()
+            closeIfOpen()
+          }}
+        >
+          {theme === 'oscuro' ? 'Tema claro ☀️' : 'Tema oscuro 🌙'}
+        </button>
+      </div>
+      <div className="mobile-controls__mini-stack">
+        <button
+          type="button"
+          className="mobile-controls__fab mobile-controls__fab--mini"
+          onClick={onToggleTheme}
+          aria-label={theme === 'oscuro' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+        >
+          {theme === 'oscuro' ? '☀️' : '🌙'}
+        </button>
+        {modo === 'estudio' ? (
+          <button
+            type="button"
+            className={clsx('mobile-controls__fab', 'mobile-controls__fab--mini', {
+              'mobile-controls__fab--active': showMunicipioLabels
+            })}
+            onClick={onToggleLabels}
+            aria-label={showMunicipioLabels ? 'Ocultar nombres de municipios' : 'Mostrar nombres de municipios'}
+          >
+            {showMunicipioLabels ? '🚫' : '🔤'}
+          </button>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        className="mobile-controls__fab mobile-controls__fab--primary"
+        onClick={onToggleOpen}
+        aria-expanded={open}
+        aria-label={open ? 'Cerrar controles de mapa' : 'Abrir controles de mapa'}
+      >
+        {open ? '✕' : '☰'}
+      </button>
+    </div>
+  )
+}
 
 function useCelebrationCue(
   celebration: CelebrationState | undefined,
