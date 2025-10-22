@@ -35,6 +35,10 @@ body.theme-light .quiz-hud__empty {
   box-shadow: 0 18px 35px rgba(148, 163, 184, 0.25);
 }
 
+body.theme-light .panel__actions-group-title {
+  color: rgba(71, 85, 105, 0.72);
+}
+
 body.theme-light .map-card {
   background: linear-gradient(145deg, rgba(237, 240, 255, 0.95), rgba(220, 228, 255, 0.92));
   border: 1px solid rgba(148, 163, 184, 0.4);
@@ -469,6 +473,26 @@ body.theme-light .app-shell__fixed-toggle--active {
   gap: 0.6rem;
 }
 
+.panel__actions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.panel__actions-group-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.6);
+}
+
+.panel__actions-group-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
 .difficulty-switch {
   display: flex;
   flex-direction: column;
@@ -570,6 +594,15 @@ body.theme-light .app-shell__fixed-toggle--active {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.ghost-button--dense {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.9rem;
 }
 
 .ghost-button:hover {
@@ -718,6 +751,26 @@ body.theme-light .ghost-button--active {
   gap: 0.85rem;
 }
 
+.reto-modal__group {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reto-modal__group-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(226, 232, 240, 0.68);
+}
+
+.reto-modal__group-buttons {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
 .reto-modal__footer {
   display: flex;
   flex-wrap: wrap;
@@ -739,6 +792,10 @@ body.theme-light .reto-modal__subtitle {
   color: rgba(51, 65, 85, 0.75);
 }
 
+body.theme-light .reto-modal__group-title {
+  color: rgba(71, 85, 105, 0.75);
+}
+
 .map-section {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -752,12 +809,41 @@ body.theme-light .reto-modal__subtitle {
   border: 1px solid rgba(37, 99, 235, 0.18);
   box-shadow: 0 35px 65px rgba(3, 7, 18, 0.55);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .map-canvas__labels {
   pointer-events: none;
 }
 
+.map-canvas__clusters {
+  pointer-events: none;
+}
+
+.map-canvas__cluster {
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  letter-spacing: 0.04em;
+  paint-order: stroke fill;
+  stroke: rgba(15, 23, 42, 0.82);
+  stroke-width: 8;
+  filter:
+    drop-shadow(0 0 12px rgba(15, 23, 42, 0.45))
+    drop-shadow(0 10px 18px rgba(3, 7, 18, 0.5));
+}
+
+.map-canvas__cluster--dimmed {
+  opacity: 0.45;
+}
+
+.map-canvas__cluster--focus-dimmed {
+  opacity: 0.28;
+}
+
+.map-canvas__cluster,
 .map-canvas__label {
   font-size: 11px;
   font-weight: 600;
@@ -778,11 +864,22 @@ body.theme-light .reto-modal__subtitle {
   opacity: 0.3;
 }
 
+.map-canvas__label--focus-dimmed {
+  opacity: 0.25;
+}
+
 body.theme-light .map-canvas__label {
   fill: #0b1220;
   text-shadow:
     0 0 12px rgba(148, 163, 184, 0.4),
     0 2px 8px rgba(148, 163, 184, 0.3);
+}
+
+body.theme-light .map-canvas__cluster {
+  stroke: rgba(255, 255, 255, 0.82);
+  filter:
+    drop-shadow(0 0 10px rgba(148, 163, 184, 0.35))
+    drop-shadow(0 8px 16px rgba(148, 163, 184, 0.3));
 }
 
 .quiz-hud {
@@ -996,6 +1093,7 @@ body.theme-light .map-canvas__label {
   vector-effect: non-scaling-stroke;
   transform-box: fill-box;
   transform-origin: center;
+  filter: drop-shadow(0 0 6px rgba(15, 23, 42, 0.28));
 }
 
 .map-canvas__feature:hover {
@@ -1008,6 +1106,23 @@ body.theme-light .map-canvas__label {
 
 .map-canvas__feature--quiz {
   transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.map-canvas__feature--focus-dimmed {
+  filter: saturate(0.45) brightness(0.85);
+}
+
+body.theme-light .map-canvas__feature {
+  filter: drop-shadow(0 0 8px rgba(148, 163, 184, 0.25));
+}
+
+body.theme-light .map-canvas__feature--focus-dimmed {
+  filter: saturate(0.4) brightness(0.92);
+}
+
+body.theme-light .map-canvas__label--focus-dimmed,
+body.theme-light .map-canvas__cluster--focus-dimmed {
+  opacity: 0.32;
 }
 
 .map-canvas__placeholder {
@@ -1322,10 +1437,6 @@ body.theme-light .map-canvas__label {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
-  }
-
-  .quiz-hud {
-    position: static;
   }
 }
 .app-shell__mobile-menu--active {

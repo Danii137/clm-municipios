@@ -1,6 +1,7 @@
 @media (max-width: 767px) {
   :root {
     --drawer-width: min(88vw, 320px);
+    --mobile-shell-padding: clamp(0.75rem, 4vw, 1rem);
   }
 
   .app-shell__header {
@@ -32,10 +33,7 @@
   }
 
   .header__controls {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: clamp(0.6rem, 3vw, 0.9rem);
+    display: none;
   }
 
   .header__labels-toggle {
@@ -45,10 +43,10 @@
   .app-shell__body {
     display: flex;
     flex-direction: column;
-    gap: clamp(1rem, 4vw, 1.5rem);
-    padding: clamp(1rem, 4vw, 1.5rem);
+    gap: clamp(0.75rem, 3.5vw, 1.25rem);
+    padding: var(--mobile-shell-padding);
     width: 100%;
-    min-height: calc(100vh - 68px);
+    min-height: calc(100vh - var(--header-height, 72px));
   }
 
   .app-shell__sidebar.mobile {
@@ -85,28 +83,37 @@
     flex-direction: column;
     gap: clamp(0.75rem, 3vw, 1.25rem);
     width: 100%;
-    padding-bottom: clamp(4.5rem, 12vw, 7rem);
+    padding-bottom: 0;
   }
 
   .map-card {
     width: 100%;
-    min-height: clamp(320px, 65vh, 560px);
-    padding: clamp(0.75rem, 3vw, 1.2rem);
+    padding: clamp(0.4rem, 3vw, 0.85rem);
     box-sizing: border-box;
+    gap: clamp(0.6rem, 2.5vw, 0.85rem);
+  }
+
+  .map-card--mobile-full {
+    min-height: calc(100vh - var(--header-height, 72px) - (2 * var(--mobile-shell-padding)));
+    height: calc(100vh - var(--header-height, 72px) - (2 * var(--mobile-shell-padding)));
+  }
+
+  .map-card--mobile-game {
+    min-height: calc(100vh - var(--header-height, 72px) - (2 * var(--mobile-shell-padding)) + 2.5rem);
+    height: calc(100vh - var(--header-height, 72px) - (2 * var(--mobile-shell-padding)) + 2.5rem);
   }
 
   .map-container {
     width: 100%;
     max-width: 100%;
-    min-height: clamp(260px, 60vh, 540px);
     touch-action: pinch-zoom;
     overflow: hidden;
     background: rgba(10, 12, 27, 0.3);
     border-radius: 1.2rem;
-    padding: clamp(0.8rem, 3vw, 1rem);
+    padding: clamp(0.6rem, 3vw, 0.9rem);
     box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
   }
 
@@ -116,6 +123,19 @@
     max-width: 100%;
     max-height: 100%;
     touch-action: pinch-zoom;
+  }
+
+  .map-card--mobile-full .map-container {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    padding: clamp(0.45rem, 3vw, 0.75rem);
+    border-radius: 1rem;
+  }
+
+  .map-card--mobile-full .map-container svg {
+    height: 100%;
+    max-height: none;
   }
 
   .municipio-info-panel.mobile {
@@ -227,5 +247,143 @@
 
   .game-hint {
     width: 92%;
+  }
+
+  .mobile-controls {
+    position: fixed;
+    right: clamp(0.85rem, 4vw, 1.35rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(1rem, 5vw, 1.8rem));
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+    pointer-events: none;
+  }
+
+  .mobile-controls__panel {
+    pointer-events: none;
+    background: rgba(12, 18, 32, 0.92);
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    border-radius: 1.35rem;
+    padding: clamp(0.8rem, 4vw, 1.1rem);
+    width: min(88vw, 320px);
+    display: grid;
+    gap: 0.75rem;
+    box-shadow: 0 24px 40px rgba(3, 7, 18, 0.55);
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .mobile-controls__section {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .mobile-controls__section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 232, 240, 0.7);
+  }
+
+  .mobile-controls .mode-switch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .mobile-controls .mode-switch__btn {
+    flex: 1;
+    font-size: 0.9rem;
+    padding: 0.45rem 0.75rem;
+  }
+
+  .mobile-controls .select-control {
+    width: 100%;
+  }
+
+  .mobile-controls .select-control select {
+    width: 100%;
+  }
+
+  .mobile-controls__mini-stack {
+    display: grid;
+    gap: 0.55rem;
+    justify-items: end;
+    pointer-events: auto;
+  }
+
+  .mobile-controls__fab {
+    pointer-events: auto;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(129, 140, 248, 0.92), rgba(59, 130, 246, 0.88));
+    color: #f8fafc;
+    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.45);
+    width: 3.35rem;
+    height: 3.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  }
+
+  .mobile-controls__fab:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-controls__fab--mini {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.1rem;
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(148, 163, 255, 0.4);
+  }
+
+  .mobile-controls__fab--primary {
+    pointer-events: auto;
+  }
+
+  .mobile-controls__fab--active {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(129, 140, 248, 0.88));
+  }
+
+  .mobile-controls--open .mobile-controls__panel {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .mobile-controls--open .mobile-controls__fab--primary {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.92), rgba(168, 85, 247, 0.9));
+  }
+
+  body.theme-light .mobile-controls__panel {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(148, 163, 184, 0.4);
+    box-shadow: 0 20px 35px rgba(148, 163, 184, 0.35);
+  }
+
+  body.theme-light .mobile-controls__section-label {
+    color: rgba(71, 85, 105, 0.75);
+  }
+
+  body.theme-light .mobile-controls__fab {
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.95), rgba(129, 140, 248, 0.92));
+    color: #0b1220;
+    box-shadow: 0 18px 32px rgba(148, 163, 184, 0.35);
+  }
+
+  body.theme-light .mobile-controls__fab--mini {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #0f172a;
+  }
+
+  body.theme-light .mobile-controls__fab--active {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(79, 70, 229, 0.28));
   }
 }

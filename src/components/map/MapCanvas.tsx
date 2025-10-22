@@ -1,13 +1,25 @@
-import { memo, useMemo, useRef, useEffect } from 'react'
-import type { ReactElement } from 'react'
-import type { Feature, Geometry } from 'geojson'
-import { geoMercator, geoPath, type GeoPath, type GeoPermissibleObjects } from 'd3-geo'
-import { select, pointer } from 'd3-selection'
-import { zoom, type ZoomBehavior } from 'd3-zoom'
-import clsx from 'clsx'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import type { FeatureCollection, Feature, Geometry } from 'geojson'
+import maplibregl, {
+  type GeoJSONSource,
+  type LngLatBoundsLike,
+  type Map as MapLibreMap,
+  type StyleSpecification
+} from 'maplibre-gl'
+import { geoBounds, geoCentroid } from 'd3-geo'
 import { assignColors } from '../../utils/coloring'
-import type { CelebrationState, ColorMode, GameMode } from '../../store/gameStore'
-import type { MunicipioId, MunicipioInfo, ProvinciaId, RespuestaEstado } from '../../types/municipio'
+import type {
+  CelebrationState,
+  ColorMode,
+  GameMode
+} from '../../store/gameStore'
+import type {
+  ComunidadId,
+  MunicipioId,
+  MunicipioInfo,
+  ProvinciaId,
+  RespuestaEstado
+} from '../../types/municipio'
 
 type MapCanvasProps = {
   features: Feature<Geometry, Record<string, unknown>>[]
@@ -16,16 +28,84 @@ type MapCanvasProps = {
   modo: GameMode
   infoById: Map<string, MunicipioInfo>
   selectedProvinces: ProvinciaId[]
+  selectedCommunities: ComunidadId[]
   statuses?: Record<string, RespuestaEstado>
   onSelect?: (municipioId: string) => void
   correctBlinkId?: string
   celebration?: CelebrationState
   lockedMunicipios?: Set<MunicipioId>
   showLabels?: boolean
+  theme: 'oscuro' | 'claro'
+  focusedMunicipios?: Set<MunicipioId> | null
 }
 
-const WIDTH = 760
-const HEIGHT = 520
+type MunicipioFeatureProperties = {
+  id: string
+  nombre: string
+  fill: string
+  fillOpacity: number
+  stroke: string
+  strokeWidth: number
+  label: string
+  labelSize: number
+  labelColor: string
+  labelOpacity: number
+  locked: boolean
+  cursor: 'pointer' | 'default'
+  maskVisible: boolean
+}
+
+type MunicipioDataset = {
+  collection: FeatureCollection<Geometry, MunicipioFeatureProperties>
+  bounds?: [[number, number], [number, number]]
+}
+
+const MAP_SOURCE_ID = 'municipios'
+const MAP_FILL_LAYER_ID = 'municipios-fill'
+const MAP_LINE_LAYER_ID = 'municipios-outline'
+const MAP_HIGHLIGHT_LAYER_ID = 'municipios-highlight'
+const MAP_LABEL_LAYER_ID = 'municipios-labels'
+const MAP_CELEBRATION_SOURCE_ID = 'celebration'
+const MAP_CELEBRATION_LAYER_ID = 'celebration-layer'
+const BASE_SOURCE_IDS = {
+  roads: 'basemap-roads'
+} as const
+const BASE_LAYER_IDS = {
+  roads: 'basemap-roads-layer'
+} as const
+type RoadsLayerKey = keyof typeof BASE_SOURCE_IDS
+const MASK_SOURCE_ID = 'basemap-mask'
+const MASK_LAYER_ID = 'basemap-mask-layer'
+const DEFAULT_CENTER: [number, number] = [-3.7, 40.0]
+const DEFAULT_ZOOM = 6
+
+const blankStyle: StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: [],
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+}
+
+const BASE_LAYER_CONFIG: Record<
+  RoadsLayerKey,
+  {
+    tiles: string
+    attribution: string
+    minzoom: number
+    maxzoom: number
+    tileSize?: number
+  }
+> = {
+  roads: {
+    tiles: 'https://cartodb-basemaps-a.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors, CartoDB',
+    minzoom: 0,
+    maxzoom: 19
+  }
+}
+
+const LOCK_FILL = '#050505'
+const DIM_FILL = '#9ca3af'
 
 const uniformFill = '#c7d2fe'
 
@@ -35,33 +115,38 @@ const statusFill: Record<RespuestaEstado, string> = {
   pendiente: uniformFill
 }
 
-const MIN_ZOOM = 0.85
-const MAX_ZOOM = 10
-const DOUBLE_CLICK_SCALE = 1.5
-const DIM_FILL = '#9ca3af'
-const LOCK_FILL = '#050505'
-const ZOOM_PADDING = 80
-
-const provinceColorCache = new Map<string, string>()
-const communityColorCache = new Map<string, string>()
-
-const colorForProvince = (provinciaId: string | undefined) => {
-  if (!provinciaId) return '#6b7280'
-  if (provinceColorCache.has(provinciaId)) {
-    return provinceColorCache.get(provinciaId) as string
-  }
-
-  let hash = 0
-  for (let i = 0; i < provinciaId.length; i += 1) {
-    hash = (hash << 5) - hash + provinciaId.charCodeAt(i)
-    hash |= 0
-  }
-
-  const hue = Math.abs(hash) % 360
-  const color = `hsl(${hue}, 60%, 62%)`
-  provinceColorCache.set(provinciaId, color)
-  return color
+const provinceColorCache: Record<'oscuro' | 'claro', Map<string, string>> = {
+  claro: new Map<string, string>(),
+  oscuro: new Map<string, string>()
 }
+
+const communityColorCache: Record<'oscuro' | 'claro', Map<string, string>> = {
+  claro: new Map<string, string>(),
+  oscuro: new Map<string, string>()
+}
+
+const PROVINCE_BASE_PALETTE = [
+  '#1b9e77',
+  '#d95f02',
+  '#7570b3',
+  '#e7298a',
+  '#66a61e',
+  '#e6ab02',
+  '#a6761d',
+  '#1f78b4',
+  '#b2df8a',
+  '#fb9a99',
+  '#fdbf6f',
+  '#cab2d6',
+  '#6a3d9a',
+  '#8dd3c7',
+  '#80b1d3',
+  '#fdae61',
+  '#abdda4',
+  '#e6f598',
+  '#f46d43',
+  '#74add1'
+]
 
 const communityPalette = [
   '#0ea5e9',
@@ -78,21 +163,73 @@ const communityPalette = [
   '#facc15'
 ]
 
-const colorForCommunity = (communityId: string | undefined) => {
-  if (!communityId) return '#6b7280'
-  if (communityColorCache.has(communityId)) {
-    return communityColorCache.get(communityId) as string
-  }
-
+const stringHash = (value: string) => {
   let hash = 0
-  for (let i = 0; i < communityId.length; i += 1) {
-    hash = (hash << 5) - hash + communityId.charCodeAt(i)
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i)
     hash |= 0
   }
+  return Math.abs(hash)
+}
 
-  const color = communityPalette[Math.abs(hash) % communityPalette.length]
-  communityColorCache.set(communityId, color)
-  return color
+const mixHexColors = (base: string, mixWith: string, weight: number) => {
+  const parse = (hex: string) => {
+    const clean = hex.replace('#', '')
+    const normalized = clean.length === 3 ? clean.repeat(2) : clean
+    const value = Number.parseInt(normalized, 16)
+    return {
+      r: (value >> 16) & 255,
+      g: (value >> 8) & 255,
+      b: value & 255
+    }
+  }
+  const baseRgb = parse(base)
+  const mixRgb = parse(mixWith)
+  const w = Math.min(1, Math.max(0, weight))
+  const blend = (a: number, b: number) => Math.round(a * (1 - w) + b * w)
+  const r = blend(baseRgb.r, mixRgb.r)
+  const g = blend(baseRgb.g, mixRgb.g)
+  const b = blend(baseRgb.b, mixRgb.b)
+  const toHex = (channel: number) => channel.toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+const colorForProvince = (provinciaId: string | undefined, theme: 'oscuro' | 'claro') => {
+  if (!provinciaId) {
+    return theme === 'oscuro' ? 'rgba(148, 163, 184, 0.65)' : '#64748b'
+  }
+  const cache = provinceColorCache[theme]
+  if (cache.has(provinciaId)) {
+    return cache.get(provinciaId) as string
+  }
+  const hash = stringHash(provinciaId)
+  const base = PROVINCE_BASE_PALETTE[hash % PROVINCE_BASE_PALETTE.length]
+  const adjusted =
+    theme === 'oscuro'
+      ? mixHexColors(base, '#cbd5f5', 0.38)
+      : mixHexColors(base, '#ffffff', 0.1)
+  cache.set(provinciaId, adjusted)
+  return adjusted
+}
+
+const adaptColorForTheme = (color: string, theme: 'oscuro' | 'claro') => {
+  if (!color || !color.startsWith('#')) return color
+  const mixTarget = theme === 'oscuro' ? '#dbeafe' : '#ffffff'
+  const weight = theme === 'oscuro' ? 0.3 : 0.1
+  return mixHexColors(color, mixTarget, weight)
+}
+
+const colorForCommunity = (communityId: string | undefined, theme: 'oscuro' | 'claro') => {
+  if (!communityId) return theme === 'oscuro' ? 'rgba(148, 163, 184, 0.65)' : '#6b7280'
+  const cache = communityColorCache[theme]
+  if (cache.has(communityId)) {
+    return cache.get(communityId) as string
+  }
+  const hash = stringHash(communityId)
+  const base = communityPalette[Math.abs(hash) % communityPalette.length]
+  const adjusted = adaptColorForTheme(base, theme)
+  cache.set(communityId, adjusted)
+  return adjusted
 }
 
 const populationColor = (info?: MunicipioInfo) => {
@@ -115,19 +252,292 @@ const altitudeColor = (altitud?: number) => {
   return `color-mix(in srgb, ${low} ${100 - percentage}%, ${high} ${percentage}%)`
 }
 
-const bringFeatureToFront = (element: SVGPathElement | null) => {
-  if (!element) return
-  const parent = element.parentNode
-  if (parent && typeof (parent as SVGGElement).appendChild === 'function') {
-    ;(parent as SVGGElement).appendChild(element)
+const buildDataset = (
+  features: Feature<Geometry, Record<string, unknown>>[],
+  infoById: Map<string, MunicipioInfo>,
+  selectedProvinceSet: Set<ProvinciaId>,
+  selectedCommunitySet: Set<ComunidadId>,
+  colorMode: ColorMode,
+  statuses: Record<string, RespuestaEstado> | undefined,
+  highlightMunicipioId: string | undefined,
+  correctBlinkId: string | undefined,
+  celebration: CelebrationState | undefined,
+  lockedMunicipios: Set<MunicipioId> | undefined,
+  colorById: Map<string, string>,
+  theme: 'oscuro' | 'claro',
+  roadsMode: boolean,
+  focusedMunicipios: Set<MunicipioId> | null
+): MunicipioDataset => {
+  if (features.length === 0) {
+    return {
+      collection: {
+        type: 'FeatureCollection',
+        features: []
+      }
+    }
+  }
+
+  const lockedSet = lockedMunicipios ?? new Set()
+  const focusSet = focusedMunicipios ?? null
+  const hasFocusFilter = Boolean(focusSet && focusSet.size > 0)
+  const hasRoadsLayer = roadsMode
+
+  const collection: FeatureCollection<Geometry, MunicipioFeatureProperties> = {
+    type: 'FeatureCollection',
+    features: []
+  }
+
+  const bounds = geoBounds({
+    type: 'FeatureCollection',
+    features
+  })
+
+  const maskByProvince = selectedProvinceSet.size > 0
+  const maskByCommunity = !maskByProvince && selectedCommunitySet.size > 0
+
+  for (const feature of features) {
+    const municipioId = String(feature.properties?.id ?? feature.id ?? 'sin-id')
+    const info = infoById.get(municipioId)
+    const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
+    const comunidad = info?.comunidad
+    const status = statuses?.[municipioId]
+    const isLocked = lockedSet.has(municipioId)
+    const isProvinceDimmed =
+      selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
+    const isFocusDimmed = hasFocusFilter && !(focusSet?.has(municipioId) ?? false)
+    const isHighlight = highlightMunicipioId === municipioId
+    const isCorrectBlink = correctBlinkId === municipioId
+    const showCelebration = celebration?.municipioId === municipioId
+
+    const maskVisible = maskByProvince
+      ? selectedProvinceSet.has(provincia as ProvinciaId)
+      : maskByCommunity
+        ? selectedCommunitySet.has(comunidad as ComunidadId)
+        : true
+
+    let fill = (() => {
+      if (isLocked) return LOCK_FILL
+      if (isProvinceDimmed) return DIM_FILL
+      if (status) return statusFill[status]
+      switch (colorMode) {
+        case 'por-provincia':
+          return colorForProvince(provincia, theme)
+        case 'por-comunidad':
+          return colorForCommunity(comunidad, theme)
+        case 'poblacion':
+          return populationColor(info)
+        case 'altitud':
+          return altitudeColor(info?.altitud)
+        case 'colorido':
+        default:
+          return adaptColorForTheme(colorById.get(municipioId) ?? uniformFill, theme)
+      }
+    })()
+
+    if (isFocusDimmed) {
+      fill = mixHexColors(
+        fill,
+        theme === 'oscuro' ? '#0f172a' : '#e2e8f0',
+        theme === 'oscuro' ? 0.5 : 0.35
+      )
+    }
+
+    if (isCorrectBlink) {
+      fill = mixHexColors(fill, '#fde047', 0.45)
+    } else if (showCelebration) {
+      fill = mixHexColors(fill, '#facc15', 0.3)
+    }
+
+    const baseOpacity = isLocked
+      ? 0.8
+      : status
+        ? 0.85
+        : isProvinceDimmed
+          ? 0.5
+          : isFocusDimmed
+            ? 0.3
+            : 0.75
+
+    let fillOpacity = baseOpacity
+    if (hasRoadsLayer) {
+      if (status) {
+        fillOpacity = 0.32
+      } else if (isHighlight || isCorrectBlink || showCelebration) {
+        fillOpacity = 0.25
+      } else {
+        fillOpacity = 0.04
+      }
+    }
+
+    const baseStroke = theme === 'oscuro' ? '#0f172a' : '#475569'
+    const neonStroke = '#22d3ee'
+    const stroke = (() => {
+      if (hasRoadsLayer) {
+        if (status === 'correcta') return '#22c55e'
+        if (status === 'fallida') return '#f87171'
+        if (isHighlight || isCorrectBlink || showCelebration) return '#facc15'
+        if (isFocusDimmed) return mixHexColors(neonStroke, '#64748b', 0.35)
+        return neonStroke
+      }
+      if (isLocked) return '#0b1220'
+      return baseStroke
+    })()
+
+    const strokeWidth = hasRoadsLayer
+      ? isHighlight || status || isCorrectBlink
+        ? 3.2
+        : isFocusDimmed
+          ? 1.6
+          : 2.4
+      : isLocked
+        ? 1.8
+        : isHighlight
+          ? 2.4
+          : 1.1
+
+    const superficie = info?.superficieKm2 ?? 0
+    const labelSize = Math.max(10, Math.min(22, Math.sqrt(Math.abs(superficie)) * 0.45))
+    const labelOpacity = hasRoadsLayer
+      ? isProvinceDimmed || isFocusDimmed
+        ? 0.75
+        : 1
+      : isProvinceDimmed || isFocusDimmed
+        ? 0.35
+        : 0.9
+    const labelColor = hasRoadsLayer ? '#ffffff' : theme === 'oscuro' ? '#f8fafc' : '#0f172a'
+
+    collection.features.push({
+      type: 'Feature',
+      geometry: feature.geometry,
+      id: municipioId,
+      properties: {
+        id: municipioId,
+        nombre: info?.nombre ?? municipioId,
+        fill,
+        fillOpacity,
+        stroke,
+        strokeWidth,
+        label: info?.nombre ?? municipioId,
+        labelSize,
+        labelColor,
+        labelOpacity,
+        locked: isLocked,
+        cursor: isLocked ? 'default' : 'pointer',
+        maskVisible
+      }
+    })
+  }
+
+  return { collection, bounds }
+}
+
+const calculateCelebrationPoint = (
+  celebration: CelebrationState | undefined,
+  dataset: FeatureCollection<Geometry, MunicipioFeatureProperties>
+) => {
+  if (!celebration?.municipioId) return undefined
+  const feature = dataset.features.find((feat) => feat.id === celebration.municipioId)
+  if (!feature) return undefined
+  try {
+    const [lon, lat] = geoCentroid(feature as Feature<Geometry, MunicipioFeatureProperties>)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined
+    return { lon, lat }
+  } catch {
+    return undefined
   }
 }
 
-const isPointerEvent = (event: Event): event is PointerEvent => 'pointerType' in event
+const EMPTY_COLLECTION: FeatureCollection = {
+  type: 'FeatureCollection',
+  features: []
+}
 
-const isTouchEvent = (event: Event): event is TouchEvent => 'touches' in event
+const WORLD_OUTER_RING: [number, number][] = [
+  [-179.99, -85],
+  [-179.99, 85],
+  [179.99, 85],
+  [179.99, -85],
+  [-179.99, -85]
+]
 
-type PathGenerator = GeoPath<void, GeoPermissibleObjects>
+const ringArea = (ring: number[][]) => {
+  let area = 0
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const [x1, y1] = ring[index]
+    const [x2, y2] = ring[index + 1]
+    area += x1 * y2 - x2 * y1
+  }
+  return area / 2
+}
+
+const ensureClockwise = (ring: number[][]) => {
+  if (ringArea(ring) < 0) return ring
+  return [...ring].reverse()
+}
+
+const ensureCounterClockwise = (ring: number[][]) => {
+  if (ringArea(ring) > 0) return ring
+  return [...ring].reverse()
+}
+
+const closeRing = (ring: number[][]) => {
+  if (ring.length === 0) return ring
+  const [firstLon, firstLat] = ring[0]
+  const [lastLon, lastLat] = ring[ring.length - 1]
+  if (firstLon === lastLon && firstLat === lastLat) {
+    return [...ring]
+  }
+  return [...ring, [firstLon, firstLat]]
+}
+
+const buildMaskCollection = (
+  features: Feature<Geometry, MunicipioFeatureProperties>[],
+  roadsMode: boolean
+): FeatureCollection => {
+  if (!roadsMode) return EMPTY_COLLECTION
+
+  const holes: number[][][] = []
+
+  for (const feature of features) {
+    const maskVisible = Boolean(feature.properties?.maskVisible)
+    if (!maskVisible) continue
+    const geometry = feature.geometry
+    if (!geometry) continue
+
+    if (geometry.type === 'Polygon') {
+      const polygons = geometry.coordinates
+      if (!polygons.length) continue
+      const outer = closeRing(polygons[0])
+      if (outer.length < 4) continue
+      holes.push(ensureClockwise(outer))
+    } else if (geometry.type === 'MultiPolygon') {
+      for (const polygon of geometry.coordinates) {
+        if (!polygon.length) continue
+        const outer = closeRing(polygon[0])
+        if (outer.length < 4) continue
+        holes.push(ensureClockwise(outer))
+      }
+    }
+  }
+
+  if (holes.length === 0) return EMPTY_COLLECTION
+
+  const outerRing = ensureCounterClockwise(closeRing(WORLD_OUTER_RING))
+
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [outerRing, ...holes]
+        },
+        properties: {}
+      }
+    ]
+  }
+}
 
 const MapCanvasComponent = ({
   features,
@@ -135,357 +545,387 @@ const MapCanvasComponent = ({
   colorMode,
   modo,
   infoById,
+  selectedCommunities,
   selectedProvinces,
   statuses,
   onSelect,
   correctBlinkId,
   celebration,
   lockedMunicipios,
-  showLabels = false
+  showLabels = false,
+  theme,
+  focusedMunicipios
 }: MapCanvasProps) => {
-  // Mantener set de provincias seleccionadas
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<MapLibreMap | null>(null)
+  const [mapReady, setMapReady] = useState(false)
+  const hasFitBoundsRef = useRef(false)
+
   const selectedProvinceSet = useMemo(
     () => new Set<ProvinciaId>(selectedProvinces),
     [selectedProvinces]
   )
 
-  const { pathGenerator, projectedFeatures } = useMemo<{
-    pathGenerator: PathGenerator | null
-    projectedFeatures: Feature<Geometry, Record<string, unknown>>[]
-  }>(() => {
-    if (features.length === 0) {
-      return {
-        pathGenerator: null,
-        projectedFeatures: [] as Feature<Geometry, Record<string, unknown>>[]
-      }
-    }
+  const selectedCommunitySet = useMemo(
+    () => new Set<ComunidadId>(selectedCommunities),
+    [selectedCommunities]
+  )
 
-    const projection = geoMercator().fitSize([WIDTH, HEIGHT], {
-      type: 'FeatureCollection',
-      features
-    })
-    const generator = geoPath(projection)
-    return { pathGenerator: generator, projectedFeatures: features }
-  }, [features])
-
-  // refs for zoom/pan
-  const svgRef = useRef<SVGSVGElement | null>(null)
-  const gRef = useRef<SVGGElement | null>(null)
-
-  // set up d3 zoom behaviour only on the map svg
-  useEffect(() => {
-    if (!svgRef.current || !gRef.current) return
-    const svg = select<SVGSVGElement, unknown>(svgRef.current)
-    const g = select<SVGGElement, unknown>(gRef.current)
-    const rawSvg = svgRef.current
-
-    svg.style('touch-action', 'pan-y pinch-zoom')
-    svg.style('cursor', 'grab')
-
-    const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([MIN_ZOOM, MAX_ZOOM])
-      .translateExtent([
-        [-ZOOM_PADDING, -ZOOM_PADDING],
-        [WIDTH + ZOOM_PADDING, HEIGHT + ZOOM_PADDING]
-      ])
-      .filter((event) => {
-        if (!event) return false
-        if (event.type === 'wheel' || event.type === 'dblclick') return true
-        if (isTouchEvent(event)) {
-          return event.touches.length > 1
-        }
-        if (isPointerEvent(event)) {
-          return event.pointerType === 'mouse' || event.pointerType === 'pen'
-        }
-        return true
-      })
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform.toString())
-      })
-
-    svg.call(zoomBehavior)
-
-    // prevent page scroll when using wheel over the svg (allow wheel to zoom map)
-    const wheelHandler = (e: WheelEvent) => {
-      e.preventDefault()
-    }
-    rawSvg.addEventListener('wheel', wheelHandler, { passive: false })
-
-    const pointerDownHandler = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return
-      svg.style('cursor', 'grabbing')
-    }
-    const pointerUpHandler = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return
-      svg.style('cursor', 'grab')
-    }
-
-    rawSvg.addEventListener('pointerdown', pointerDownHandler)
-    rawSvg.addEventListener('pointerup', pointerUpHandler)
-    rawSvg.addEventListener('pointerleave', pointerUpHandler)
-    rawSvg.addEventListener('pointercancel', pointerUpHandler)
-
-    const dblHandler = (event: MouseEvent) => {
-      // zoom in around pointer on double click
-      event.preventDefault()
-      const point = pointer(event, rawSvg)
-      try {
-        zoomBehavior.scaleBy(svg, DOUBLE_CLICK_SCALE, point)
-      } catch {
-        g.attr('transform', 'translate(0,0) scale(1)')
-      }
-    }
-    rawSvg.addEventListener('dblclick', dblHandler)
-
-    return () => {
-      rawSvg.removeEventListener('wheel', wheelHandler)
-      rawSvg.removeEventListener('dblclick', dblHandler)
-      rawSvg.removeEventListener('pointerdown', pointerDownHandler)
-      rawSvg.removeEventListener('pointerup', pointerUpHandler)
-      rawSvg.removeEventListener('pointerleave', pointerUpHandler)
-      rawSvg.removeEventListener('pointercancel', pointerUpHandler)
-      svg.on('.zoom', null)
-    }
-  }, [features])
-
-  // asignar colores únicos a cada municipio usando la heurística
   const colorById = useMemo(() => {
     try {
       return assignColors(features)
-    } catch (e) {
-      console.error('Error assigning colors', e)
+    } catch (error) {
+      console.error('Error assigning colors', error)
       return new Map<string, string>()
     }
   }, [features])
 
-  const celebrationPoint = useMemo(() => {
-    if (!celebration || !pathGenerator) return undefined
-    if (!celebration.municipioId) return undefined
-    const feature = projectedFeatures.find((feat) => {
-      const municipioId = String(feat.properties?.id ?? feat.id ?? 'sin-id')
-      return municipioId === celebration.municipioId
+  const roadsMode = colorMode === 'carreteras'
+
+  const dataset = useMemo(
+    () =>
+      buildDataset(
+        features,
+        infoById,
+        selectedProvinceSet,
+        selectedCommunitySet,
+        colorMode,
+        statuses,
+        highlightMunicipioId,
+        correctBlinkId,
+        celebration,
+        lockedMunicipios,
+        colorById,
+        theme,
+        roadsMode,
+        focusedMunicipios ?? null
+      ),
+    [
+      celebration,
+      colorById,
+      colorMode,
+      correctBlinkId,
+      features,
+      focusedMunicipios,
+      highlightMunicipioId,
+      infoById,
+      lockedMunicipios,
+      selectedCommunitySet,
+      selectedProvinceSet,
+      statuses,
+      theme,
+      roadsMode
+    ]
+  )
+
+  const celebrationPoint = useMemo(
+    () => calculateCelebrationPoint(celebration, dataset.collection),
+    [celebration, dataset.collection]
+  )
+
+  const maskCollection = useMemo(
+    () => buildMaskCollection(dataset.collection.features, roadsMode),
+    [roadsMode, dataset.collection.features]
+  )
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: blankStyle,
+      center: DEFAULT_CENTER,
+      zoom: DEFAULT_ZOOM,
+      cooperativeGestures: true
     })
-    if (!feature) return undefined
-    try {
-      const [cx, cy] = pathGenerator.centroid(feature as GeoPermissibleObjects)
-      if (!Number.isFinite(cx) || !Number.isFinite(cy)) return undefined
-      return {
-        x: cx,
-        y: cy,
-        key: celebration.key
-      }
-    } catch (error) {
-      console.error('Error calculating celebration centroid', error)
-      return undefined
+
+    map.addControl(new maplibregl.AttributionControl({ compact: true }))
+
+    mapRef.current = map
+    const onLoad = () => {
+      setMapReady(true)
     }
-  }, [celebration, pathGenerator, projectedFeatures])
 
-  const labelEntries = useMemo(() => {
-    if (!showLabels || modo !== 'estudio' || !pathGenerator) return []
+    map.on('load', onLoad)
 
-    const entries: Array<{
-      municipioId: string
-      nombre: string
-      x: number
-      y: number
-      fontSize: number
-      isDimmed: boolean
-      isLocked: boolean
-    }> = []
+    return () => {
+      map.off('load', onLoad)
+      map.remove()
+      mapRef.current = null
+    }
+  }, [])
 
-    for (const feature of projectedFeatures) {
-      const municipioId = String(feature.properties?.id ?? feature.id ?? 'sin-id')
-      const info = infoById.get(municipioId)
-      const nombre = info?.nombre
-      if (!nombre) continue
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
 
-      const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
-      const isDimmed =
-        selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
-      const isLocked = Boolean(lockedMunicipios?.has(municipioId))
-
-      try {
-        const centroid = pathGenerator.centroid(feature as GeoPermissibleObjects)
-        if (!centroid || centroid.length < 2) continue
-        const [cx, cy] = centroid
-        if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue
-
-        const bounds = pathGenerator.bounds(feature as GeoPermissibleObjects)
-        if (!bounds || bounds.length < 2) continue
-        const width = bounds[1][0] - bounds[0][0]
-        const height = bounds[1][1] - bounds[0][1]
-        if (!Number.isFinite(width) || !Number.isFinite(height)) continue
-
-        const minDimension = Math.min(width, height)
-        if (minDimension < 9) continue
-
-        const area = width * height
-        const fontSize = Math.max(9, Math.min(18, Math.sqrt(Math.abs(area)) * 0.55))
-
-        entries.push({
-          municipioId,
-          nombre,
-          x: cx,
-          y: cy,
-          fontSize,
-          isDimmed,
-          isLocked
+    ;(['roads'] as const).forEach((key) => {
+      const sourceId = BASE_SOURCE_IDS[key]
+      if (!map.getSource(sourceId)) {
+        const config = BASE_LAYER_CONFIG[key]
+        map.addSource(sourceId, {
+          type: 'raster',
+          tiles: [config.tiles],
+          tileSize: config.tileSize ?? 256,
+          minzoom: config.minzoom,
+          maxzoom: config.maxzoom,
+          attribution: config.attribution
         })
-      } catch {
-        // ignoramos geometrías que no puedan calcular centroid/bounds
       }
+
+      const layerId = BASE_LAYER_IDS[key]
+      if (!map.getLayer(layerId)) {
+        map.addLayer(
+          {
+            id: layerId,
+            type: 'raster',
+            source: sourceId,
+            paint: {
+              'raster-opacity': 1,
+              'raster-contrast': 0.85,
+              'raster-brightness-max': 1.35,
+              'raster-brightness-min': 0.1,
+              'raster-saturation': 0.2
+            }
+          },
+          MAP_FILL_LAYER_ID
+        )
+        map.setLayoutProperty(layerId, 'visibility', 'none')
+      }
+    })
+
+    if (!map.getSource(MASK_SOURCE_ID)) {
+      map.addSource(MASK_SOURCE_ID, {
+        type: 'geojson',
+        data: EMPTY_COLLECTION
+      })
     }
 
-    return entries
-  }, [showLabels, modo, pathGenerator, projectedFeatures, infoById, selectedProvinceSet, lockedMunicipios])
+    if (!map.getLayer(MASK_LAYER_ID)) {
+      map.addLayer(
+        {
+          id: MASK_LAYER_ID,
+          type: 'fill',
+          source: MASK_SOURCE_ID,
+          paint: {
+            'fill-color': theme === 'oscuro' ? '#0b1120' : '#e2e8f0',
+            'fill-opacity': roadsMode ? 1 : 0
+          }
+        },
+        MAP_FILL_LAYER_ID
+      )
+      map.setLayoutProperty(MASK_LAYER_ID, 'visibility', 'none')
+    } else {
+      map.setPaintProperty(MASK_LAYER_ID, 'fill-color', theme === 'oscuro' ? '#0b1120' : '#e2e8f0')
+      map.setPaintProperty(MASK_LAYER_ID, 'fill-opacity', roadsMode ? 1 : 0)
+    }
+  }, [mapReady, theme, roadsMode])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+
+    const source = map.getSource(MAP_SOURCE_ID) as GeoJSONSource | undefined
+
+    if (!source) {
+      map.addSource(MAP_SOURCE_ID, {
+        type: 'geojson',
+        data: dataset.collection
+      })
+
+      map.addLayer(
+        {
+          id: MAP_FILL_LAYER_ID,
+          type: 'fill',
+          source: MAP_SOURCE_ID,
+          paint: {
+            'fill-color': ['get', 'fill'],
+            'fill-opacity': ['get', 'fillOpacity']
+          }
+        },
+        undefined
+      )
+
+      map.addLayer({
+        id: MAP_LINE_LAYER_ID,
+        type: 'line',
+        source: MAP_SOURCE_ID,
+        paint: {
+          'line-color': ['get', 'stroke'],
+          'line-width': ['get', 'strokeWidth']
+        }
+      })
+
+      map.addLayer({
+        id: MAP_HIGHLIGHT_LAYER_ID,
+        type: 'line',
+        source: MAP_SOURCE_ID,
+        paint: {
+          'line-color': '#facc15',
+          'line-width': 3
+        },
+        filter: ['==', ['id'], '']
+      })
+
+      map.addLayer({
+        id: MAP_LABEL_LAYER_ID,
+        type: 'symbol',
+        source: MAP_SOURCE_ID,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': ['get', 'labelSize'],
+          'text-font': ['Noto Sans Regular'],
+          'text-allow-overlap': false,
+          'text-padding': 2,
+          'symbol-z-order': 'source'
+        },
+        paint: {
+          'text-color': ['get', 'labelColor'],
+          'text-opacity': ['get', 'labelOpacity']
+        }
+      })
+
+      map.on('click', MAP_FILL_LAYER_ID, (event) => {
+        const feature = event.features?.[0]
+        if (!feature) return
+        const id = String(feature.id ?? feature.properties?.id ?? '')
+        const locked = Boolean(feature.properties?.locked)
+        if (locked) return
+        onSelect?.(id)
+      })
+
+      map.on('mouseenter', MAP_FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = 'pointer'
+      })
+
+      map.on('mouseleave', MAP_FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = ''
+      })
+    } else {
+      source.setData(dataset.collection)
+    }
+
+    if (dataset.bounds && !hasFitBoundsRef.current) {
+      hasFitBoundsRef.current = true
+      const [[minLon, minLat], [maxLon, maxLat]] = dataset.bounds
+      if (
+        Number.isFinite(minLat) &&
+        Number.isFinite(minLon) &&
+        Number.isFinite(maxLat) &&
+        Number.isFinite(maxLon)
+      ) {
+        const bounds: LngLatBoundsLike = [
+          [minLon, minLat],
+          [maxLon, maxLat]
+        ]
+        map.fitBounds(
+          bounds,
+          {
+            padding: 32,
+            duration: 0
+          },
+          undefined
+        )
+      }
+    }
+  }, [dataset, mapReady, onSelect])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    const source = map.getSource(MASK_SOURCE_ID) as GeoJSONSource | undefined
+    if (!source) return
+    source.setData(maskCollection)
+  }, [mapReady, maskCollection])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    if (!map.getLayer(MAP_HIGHLIGHT_LAYER_ID)) return
+
+    if (highlightMunicipioId) {
+      map.setFilter(MAP_HIGHLIGHT_LAYER_ID, ['==', ['id'], highlightMunicipioId])
+    } else {
+      map.setFilter(MAP_HIGHLIGHT_LAYER_ID, ['==', ['literal', ''], 'not-used'])
+    }
+  }, [highlightMunicipioId, mapReady])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    ;(['roads'] as const).forEach((key) => {
+      const layerId = BASE_LAYER_IDS[key]
+      if (!map.getLayer(layerId)) return
+      const visibility = roadsMode ? 'visible' : 'none'
+      map.setLayoutProperty(layerId, 'visibility', visibility)
+    })
+    if (map.getLayer(MASK_LAYER_ID)) {
+      map.setLayoutProperty(MASK_LAYER_ID, 'visibility', roadsMode ? 'visible' : 'none')
+      map.setPaintProperty(MASK_LAYER_ID, 'fill-opacity', roadsMode ? 1 : 0)
+    }
+  }, [roadsMode, mapReady])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    if (!map.getLayer(MAP_LABEL_LAYER_ID)) return
+    const visible = modo === 'estudio' && showLabels ? 'visible' : 'none'
+    map.setLayoutProperty(MAP_LABEL_LAYER_ID, 'visibility', visible)
+  }, [mapReady, modo, showLabels])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    const existingSource = map.getSource(MAP_CELEBRATION_SOURCE_ID) as GeoJSONSource | undefined
+
+    if (!celebrationPoint) {
+      if (existingSource && map.getLayer(MAP_CELEBRATION_LAYER_ID)) {
+        map.removeLayer(MAP_CELEBRATION_LAYER_ID)
+        map.removeSource(MAP_CELEBRATION_SOURCE_ID)
+      }
+      return
+    }
+
+    const celebrationFeature: FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [celebrationPoint.lon, celebrationPoint.lat]
+          },
+          properties: {}
+        }
+      ]
+    }
+
+    if (!existingSource) {
+      map.addSource(MAP_CELEBRATION_SOURCE_ID, {
+        type: 'geojson',
+        data: celebrationFeature
+      })
+
+      map.addLayer({
+        id: MAP_CELEBRATION_LAYER_ID,
+        type: 'circle',
+        source: MAP_CELEBRATION_SOURCE_ID,
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#facc15',
+          'circle-opacity': 0.35,
+          'circle-stroke-color': '#fde68a',
+          'circle-stroke-width': 2
+        }
+      })
+    } else {
+      existingSource.setData(celebrationFeature)
+    }
+  }, [celebrationPoint, mapReady])
 
   return (
     <div className="map-container map-canvas">
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        role="img"
-        aria-label="Mapa vectorial de Castilla-La Mancha"
-      >
-        <g ref={gRef}>
-          <rect
-            width={WIDTH}
-            height={HEIGHT}
-            rx={24}
-            className="map-canvas__background"
-          />
-          {pathGenerator && projectedFeatures.length > 0
-            ? projectedFeatures.map((feature): ReactElement | null => {
-                const municipioId = String(
-                  feature.properties?.id ?? feature.id ?? 'sin-id'
-                )
-                const info = infoById.get(municipioId)
-                const provincia = info?.provincia ?? String(feature.properties?.provincia ?? '')
-                const comunidad = info?.comunidad
-                const nombreProp = info?.nombre ?? municipioId
-                const d = pathGenerator(feature as GeoPermissibleObjects)
-                if (!d) return null
-
-                const status = statuses?.[municipioId]
-                const isActive = highlightMunicipioId === municipioId
-                // Si hay provincias seleccionadas, solo se encienden los municipios de esas provincias
-                const isProvinceDimmed =
-                  selectedProvinceSet.size > 0 && !selectedProvinceSet.has(provincia as ProvinciaId)
-
-                const isLocked = lockedMunicipios?.has(municipioId)
-
-                const fill = (() => {
-                  if (isLocked) return LOCK_FILL
-                  if (isProvinceDimmed) return DIM_FILL
-                  if (status) return statusFill[status]
-                  switch (colorMode) {
-                    case 'por-provincia':
-                      return colorForProvince(provincia)
-                    case 'por-comunidad':
-                      return colorForCommunity(comunidad)
-                    case 'poblacion':
-                      return populationColor(info)
-                    case 'altitud':
-                      return altitudeColor(info?.altitud)
-                    case 'colorido':
-                    default:
-                      return colorById.get(municipioId) ?? uniformFill
-                  }
-                })()
-
-                const opacity = isLocked
-                  ? 0.9
-                  : status
-                    ? 0.95
-                    : isProvinceDimmed
-                      ? 0.6
-                      : 0.85
-                const isCorrectTarget = correctBlinkId === municipioId
-                const showCelebration = celebration?.municipioId === municipioId
-                const featureClassName = clsx('map-canvas__feature', {
-                  'map-canvas__feature--active': isActive,
-                  'map-canvas__feature--dimmed': !status && isProvinceDimmed,
-                  'map-canvas__feature--quiz': modo === 'reto',
-                  'map-canvas__feature--correct-target': isCorrectTarget,
-                  'map-canvas__feature--locked': isLocked,
-                  'map-canvas__feature--locked-success': isLocked && status === 'correcta',
-                  'map-canvas__feature--locked-fail': isLocked && status === 'fallida',
-                  'map-canvas__feature--celebration': showCelebration
-                })
-
-                const strokeColor = isLocked ? '#0f172a' : '#312e81'
-
-                const strokeWidth = isLocked
-                  ? status === 'correcta' || status === 'fallida'
-                    ? 2.4
-                    : 1.8
-                  : isActive
-                    ? 2.4
-                    : 1.1
-
-                const strokeDasharray = isLocked
-                  ? status === 'correcta' || status === 'fallida'
-                    ? '4 2'
-                    : '2 2'
-                  : undefined
-
-                return (
-                  <path
-                    key={municipioId}
-                    d={d}
-                    className={featureClassName}
-                    fill={fill}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={strokeDasharray}
-                    vectorEffect="non-scaling-stroke"
-                    fillOpacity={opacity}
-                    onClick={() => onSelect?.(municipioId)}
-                    onMouseEnter={(event) => bringFeatureToFront(event.currentTarget)}
-                  >
-                    <title>{nombreProp}</title>
-                  </path>
-            )
-          })
-            : null}
-          {labelEntries.length > 0 ? (
-            <g className="map-canvas__labels">
-              {labelEntries.map((label) => (
-                <text
-                  key={`label-${label.municipioId}`}
-                  x={label.x}
-                  y={label.y}
-                  className={clsx('map-canvas__label', {
-                    'map-canvas__label--dimmed': label.isDimmed,
-                    'map-canvas__label--locked': label.isLocked
-                  })}
-                  style={{ fontSize: `${label.fontSize}px` }}
-                >
-                  {label.nombre}
-                </text>
-              ))}
-            </g>
-          ) : null}
-          {celebrationPoint ? (
-            <g
-              key={celebrationPoint.key}
-              className="map-celebration"
-              transform={`translate(${celebrationPoint.x} ${celebrationPoint.y})`}
-            >
-              <circle className="map-celebration__glow" r="18" />
-              <path
-                className="map-celebration__star"
-                d="M0 -12 L3.6 -4.2 L11.5 -3.8 L5.8 1.8 L7.8 9.6 L0 5.2 L-7.8 9.6 L-5.8 1.8 L-11.5 -3.8 L-3.6 -4.2 Z"
-              />
-            </g>
-          ) : null}
-        </g>
-        {!pathGenerator || projectedFeatures.length === 0 ? (
-          <text x="50%" y="50%" textAnchor="middle" className="map-canvas__placeholder">
-            Cargando mapa…
-          </text>
-        ) : null}
-      </svg>
+      <div ref={containerRef} className="maplibre-container" />
     </div>
   )
 }

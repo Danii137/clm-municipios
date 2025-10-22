@@ -1,16 +1,20 @@
 import type { Feature, Geometry } from 'geojson'
 
 export const PALETTE = [
-  '#00A6ED', // Sky Pulse
-  '#7ED957', // Lime Burst
-  '#7E57C2', // Purple Bloom
-  '#FF6F00', // Solar Pop
-  '#FF5252', // Coral Heat
-  '#FFEB3B', // Sunny Kick
-  '#E91E63', // Neon Pink
-  '#00BFA5', // Aqua Twist
-  '#2962FF', // Deep Wave
-  '#D68600'  // Golden Clay
+  '#264653', // Deep Teal
+  '#2a9d8f', // Aqua Green
+  '#8ab17d', // Laurel
+  '#e9c46a', // Saffron
+  '#f4a261', // Desert
+  '#e76f51', // Coral
+  '#f28482', // Soft Salmon
+  '#84a59d', // Misty Sage
+  '#52796f', // Pine
+  '#ff9f1c', // Amber
+  '#9d4edd', // Violet Pulse
+  '#48cae4', // Sky Cyan
+  '#b5179e', // Magenta Bloom
+  '#2b9348'  // Meadow Green
 ]
 
 const stringHash = (value: string) => {

@@ -599,7 +599,6 @@ useEffect(() => {
                 <option value="por-comunidad">Por comunidad</option>
                 <option value="poblacion">Pulso de población</option>
                 <option value="altitud">Relieve</option>
-                <option value="carreteras">Mapa carreteras</option>
               </select>
             </label>
               {modo === 'estudio' ? (
@@ -1083,7 +1082,6 @@ const MobileFloatingControls = ({
             <option value="por-comunidad">Por comunidad</option>
             <option value="poblacion">Pulso de población</option>
             <option value="altitud">Relieve</option>
-            <option value="carreteras">Mapa carreteras</option>
           </select>
         </label>
         {modo === 'estudio' ? (
